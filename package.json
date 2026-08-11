@@ -1,0 +1,40 @@
+{
+  "name": "sitemap-cohort-auditor",
+  "version": "0.1.0",
+  "description": "Audit sitemap URL cohorts, image coverage, metadata quality, and release-to-release changes.",
+  "author": "Edilec",
+  "homepage": "https://github.com/edilec/sitemap-cohort-auditor#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/edilec/sitemap-cohort-auditor.git"
+  },
+  "bugs": {
+    "url": "https://github.com/edilec/sitemap-cohort-auditor/issues"
+  },
+  "type": "module",
+  "bin": {
+    "sitemap-cohort-auditor": "./bin/sitemap-cohort-auditor.mjs"
+  },
+  "scripts": {
+    "audit": "node ./bin/sitemap-cohort-auditor.mjs",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "files": [
+    "bin/",
+    "lib/",
+    "README.md",
+    "LICENSE",
+    "SECURITY.md",
+    "CONTRIBUTING.md"
+  ],
+  "keywords": [
+    "sitemap",
+    "seo",
+    "audit",
+    "cli"
+  ],
+  "license": "MIT"
+}
