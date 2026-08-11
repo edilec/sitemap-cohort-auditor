@@ -1,5 +1,7 @@
 # Sitemap Cohort Auditor
 
+[![CI](https://github.com/edilec/sitemap-cohort-auditor/actions/workflows/ci.yml/badge.svg)](https://github.com/edilec/sitemap-cohort-auditor/actions/workflows/ci.yml)
+
 A dependency-free Node.js command-line utility for checking sitemap cohorts before and after a site release. It follows nested sitemap indexes, counts page and image entries, and highlights changes or metadata problems that are easy to miss in very large sitemaps.
 
 ## Requirements
