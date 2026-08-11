@@ -1,6 +1,9 @@
 # Sitemap Cohort Auditor
 
 [![CI](https://github.com/edilec/sitemap-cohort-auditor/actions/workflows/ci.yml/badge.svg)](https://github.com/edilec/sitemap-cohort-auditor/actions/workflows/ci.yml)
+[![Latest release](https://img.shields.io/github/v/release/edilec/sitemap-cohort-auditor?label=release)](https://github.com/edilec/sitemap-cohort-auditor/releases/latest)
+[![License: MIT](https://img.shields.io/badge/license-MIT-555.svg)](./LICENSE)
+[![Security policy](https://img.shields.io/badge/security-policy-555.svg)](https://github.com/edilec/sitemap-cohort-auditor/security/policy)
 
 A dependency-free Node.js command-line utility for checking sitemap cohorts before and after a site release. It follows nested sitemap indexes, counts page and image entries, and highlights changes or metadata problems that are easy to miss in very large sitemaps.
 
@@ -24,6 +27,15 @@ After installing the package globally or linking it with `npm link`, use the sho
 ```sh
 sitemap-cohort-auditor ./sitemap.xml
 ```
+
+To install the recommended release directly from its checksummed package:
+
+```sh
+npm install --global https://github.com/edilec/sitemap-cohort-auditor/releases/download/v0.1.1/sitemap-cohort-auditor-0.1.1.tgz
+sitemap-cohort-auditor ./sitemap.xml
+```
+
+Release artifacts and checksums are available on the [latest release page](https://github.com/edilec/sitemap-cohort-auditor/releases/latest).
 
 Remote input must use HTTPS:
 
@@ -96,6 +108,14 @@ This is a focused sitemap checker, not a general XML validator or crawler.
 ## License
 
 MIT. See [LICENSE](./LICENSE).
+
+## Project links
+
+- [Latest release](https://github.com/edilec/sitemap-cohort-auditor/releases/latest)
+- [Security policy](https://github.com/edilec/sitemap-cohort-auditor/security/policy)
+- [Private vulnerability report](https://github.com/edilec/sitemap-cohort-auditor/security/advisories/new)
+- [Contributing guide](./CONTRIBUTING.md)
+- [Code of conduct](./CODE_OF_CONDUCT.md)
 
 ## Maintainer
 

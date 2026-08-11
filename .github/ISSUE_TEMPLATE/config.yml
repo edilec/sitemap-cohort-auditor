@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Private vulnerability report
+    url: https://github.com/edilec/sitemap-cohort-auditor/security/advisories/new
+    about: Report suspected security vulnerabilities privately.
+  - name: Security policy
+    url: https://github.com/edilec/sitemap-cohort-auditor/security/policy
+    about: Review supported versions, scope notes and reporting guidance.
