@@ -66,11 +66,14 @@ Accepted `<lastmod>` formats are `YYYY-MM-DD` and a complete ISO/W3C-style times
 
 ## Safety limits
 
-- HTTP input is rejected; remote sources and redirects must remain on HTTPS.
-- Remote requests time out after 30 seconds.
-- Each uncompressed XML document is limited to 50 MiB.
+- HTTP input is rejected. Remote child sitemaps and redirects must stay on the starting URL's HTTPS origin.
+- Local sitemap indexes may reference only local child files; they cannot initiate remote requests.
+- Remote redirects are followed manually, with at most five redirects across a request.
+- Remote request chains time out after 30 seconds.
+- Each sitemap transfer and each uncompressed XML document is streamed with a 50 MiB limit.
 - A sitemap graph is limited to 10,000 distinct documents.
 - Gzip content is detected from its bytes, so local and remote `.gz` files are supported even when their names are unconventional.
+- Human-readable output escapes terminal control and bidirectional formatting characters.
 
 ## Limitations
 
@@ -81,6 +84,8 @@ This is a focused sitemap checker, not a general XML validator or crawler.
 - It audits sitemap declarations; it does not request every listed page, verify canonical tags, assess page quality, or estimate search rankings.
 - Counts describe the sitemap at audit time. A changing remote sitemap can produce different results on later runs.
 - A successful audit does not guarantee indexing. Search engines make their own crawling and indexing decisions.
+- The byte limit is per document. Very large sitemap graphs can still require substantial aggregate work, so do not expose this CLI as an unauthenticated hosted service.
+- Local child paths can traverse directories or resolve through symlinks. Review untrusted local sitemap indexes before running them in a privileged environment.
 
 ## Exit codes
 

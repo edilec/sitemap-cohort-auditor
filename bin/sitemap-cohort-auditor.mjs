@@ -1,6 +1,12 @@
 #!/usr/bin/env node
 
-import { auditSitemap, formatTextReport, VERSION } from '../lib/audit.mjs';
+import {
+  auditSitemap,
+  escapeTerminalText,
+  formatJsonReport,
+  formatTextReport,
+  VERSION,
+} from '../lib/audit.mjs';
 
 const HELP = `sitemap-cohort-auditor ${VERSION}
 
@@ -53,7 +59,7 @@ async function main() {
   try {
     options = parseArguments(process.argv.slice(2));
   } catch (error) {
-    console.error(`Error: ${error.message}\n\n${HELP}`);
+    console.error(`Error: ${escapeTerminalText(error.message)}\n\n${HELP}`);
     process.exitCode = 2;
     return;
   }
@@ -77,11 +83,11 @@ async function main() {
   try {
     const report = await auditSitemap(options.source, { compare: options.compare });
     const output = options.json
-      ? `${JSON.stringify(report, null, 2)}\n`
+      ? formatJsonReport(report)
       : formatTextReport(report);
     process.stdout.write(output);
   } catch (error) {
-    console.error(`Audit failed: ${error.message}`);
+    console.error(`Audit failed: ${escapeTerminalText(error.message)}`);
     process.exitCode = 1;
   }
 }

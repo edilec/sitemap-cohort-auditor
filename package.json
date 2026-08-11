@@ -1,6 +1,6 @@
 {
   "name": "sitemap-cohort-auditor",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Audit sitemap URL cohorts, image coverage, metadata quality, and release-to-release changes.",
   "author": "Edilec",
   "homepage": "https://github.com/edilec/sitemap-cohort-auditor#readme",
