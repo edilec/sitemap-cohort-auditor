@@ -1,8 +1,8 @@
 {
   "name": "sitemap-cohort-auditor",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Audit sitemap URL cohorts, image coverage, metadata quality, and release-to-release changes.",
-  "author": "Edilec",
+  "author": "Edilec Private Limited",
   "homepage": "https://github.com/edilec/sitemap-cohort-auditor#readme",
   "repository": {
     "type": "git",
@@ -25,6 +25,7 @@
   "files": [
     "bin/",
     "lib/",
+    "examples/",
     "README.md",
     "CHANGELOG.md",
     "LICENSE",
@@ -35,7 +36,9 @@
     "sitemap",
     "seo",
     "audit",
-    "cli"
+    "cli",
+    "ci",
+    "policy"
   ],
   "license": "MIT"
 }

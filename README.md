@@ -31,7 +31,7 @@ sitemap-cohort-auditor ./sitemap.xml
 To install the recommended release directly from its checksummed package:
 
 ```sh
-npm install --global https://github.com/edilec/sitemap-cohort-auditor/releases/download/v0.1.1/sitemap-cohort-auditor-0.1.1.tgz
+npm install --global https://github.com/edilec/sitemap-cohort-auditor/releases/download/v0.2.0/sitemap-cohort-auditor-0.2.0.tgz
 sitemap-cohort-auditor ./sitemap.xml
 ```
 
@@ -76,6 +76,63 @@ The report includes:
 
 Accepted `<lastmod>` formats are `YYYY-MM-DD` and a complete ISO/W3C-style timestamp with seconds and a `Z` or numeric timezone, such as `2026-08-10T12:30:00+05:30`.
 
+## Enforce a release policy in CI
+
+Add `--policy` to turn selected sitemap findings into an explicit CI gate:
+
+```sh
+sitemap-cohort-auditor ./after/sitemap.xml \
+  --compare ./before/sitemap.xml \
+  --policy ./sitemap-policy.json
+```
+
+Policies are local, versioned JSON files. A strict starting point is included at
+[`examples/strict-policy.json`](./examples/strict-policy.json):
+
+```json
+{
+  "schemaVersion": 1,
+  "allowedHosts": ["example.com"],
+  "allowedSchemes": ["https"],
+  "minUniqueUrls": 1,
+  "maxDuplicateUrls": 0,
+  "maxInvalidLastmodValues": 0,
+  "maxFragmentUrls": 0,
+  "maxInvalidUrls": 0,
+  "maxMissingLocs": 0,
+  "maxRemovedUrls": 0
+}
+```
+
+Supported rules are:
+
+| Rule | Meaning |
+| --- | --- |
+| `allowedHosts` | Exact lowercase URL hosts permitted in valid page URLs, including any non-default port |
+| `allowedSchemes` | Permitted page URL schemes: `http`, `https`, or both |
+| `minUniqueUrls` | Minimum number of unique page URL declarations |
+| `minUniqueImages` | Minimum number of unique image URL declarations |
+| `maxDuplicateUrls` | Maximum number of page URLs declared more than once |
+| `maxDuplicateUrlEntries` | Maximum declarations beyond the unique page URL count |
+| `maxInvalidLastmodValues` | Maximum invalid or non-ISO `<lastmod>` values |
+| `maxFragmentUrls` | Maximum page URLs containing fragments |
+| `maxInvalidUrls` | Maximum malformed or unsupported page URLs |
+| `maxMissingLocs` | Maximum sitemap or URL records without a primary `<loc>` |
+| `maxRemovedUrls` | Maximum removed URLs; requires `--compare` |
+
+Unknown properties, duplicate allowed values, unsupported schemes, negative
+limits, and unrecognized schema versions are rejected. Rules use inclusive
+boundaries: a count exactly equal to its minimum or maximum passes. With
+`--json`, the deterministic `policy` object is included in the normal report.
+
+Host and scheme allowlists inspect valid HTTP(S) page URLs. Pair either
+allowlist with `"maxInvalidUrls": 0` when unsupported schemes or malformed URLs
+must fail closed; the bundled strict example does this.
+
+The policy file is never fetched over the network and is limited to 64 KiB. A
+policy gate checks the sitemap declaration supplied to this command; it does
+not crawl listed pages or prove that a release is indexed.
+
 ## Safety limits
 
 - HTTP input is rejected. Remote child sitemaps and redirects must stay on the starting URL's HTTPS origin.
@@ -83,6 +140,7 @@ Accepted `<lastmod>` formats are `YYYY-MM-DD` and a complete ISO/W3C-style times
 - Remote redirects are followed manually, with at most five redirects across a request.
 - Remote request chains time out after 30 seconds.
 - Each sitemap transfer and each uncompressed XML document is streamed with a 50 MiB limit.
+- Policy input must be a local UTF-8 JSON file and is streamed with a 64 KiB limit.
 - A sitemap graph is limited to 10,000 distinct documents.
 - Gzip content is detected from its bytes, so local and remote `.gz` files are supported even when their names are unconventional.
 - Human-readable output escapes terminal control and bidirectional formatting characters.
@@ -103,7 +161,8 @@ This is a focused sitemap checker, not a general XML validator or crawler.
 
 - `0`: audit completed, even if quality findings were reported;
 - `1`: the sitemap could not be loaded or parsed safely;
-- `2`: command-line usage error.
+- `2`: command-line usage or policy-configuration error;
+- `3`: the audit completed but one or more configured policy rules failed.
 
 ## License
 
