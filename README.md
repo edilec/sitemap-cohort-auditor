@@ -114,6 +114,7 @@ MIT. See [LICENSE](./LICENSE).
 - [Latest release](https://github.com/edilec/sitemap-cohort-auditor/releases/latest)
 - [Security policy](https://github.com/edilec/sitemap-cohort-auditor/security/policy)
 - [Private vulnerability report](https://github.com/edilec/sitemap-cohort-auditor/security/advisories/new)
+- [Changelog](./CHANGELOG.md)
 - [Contributing guide](./CONTRIBUTING.md)
 - [Code of conduct](./CODE_OF_CONDUCT.md)
 
