@@ -6,7 +6,8 @@ Security fixes are applied to the latest release on the main development branch.
 
 | Version | Supported |
 | --- | --- |
-| 0.1.1 | Yes |
+| 0.2.x | Yes |
+| 0.1.1 | No |
 | 0.1.0 | No |
 
 ## Reporting a vulnerability
@@ -17,4 +18,4 @@ Include the affected version, operating system and Node.js version, reproduction
 
 ## Scope notes
 
-The utility reads local files and retrieves user-supplied HTTPS sitemap URLs. Treat untrusted sitemap files as untrusted input, run the CLI with the least filesystem access it needs, and review URLs before using them in another automated workflow.
+The utility reads local files and retrieves user-supplied HTTPS sitemap URLs. An optional policy gate reads a local JSON file. Treat sitemap and policy files as untrusted input, run the CLI with the least filesystem access it needs, and review URLs before using them in another automated workflow.
