@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640" viewBox="0 0 1280 640" role="img" aria-labelledby="title description">
+  <title id="title">Sitemap Cohort Auditor repository preview</title>
+  <desc id="description">Edilec open-source CLI artwork showing two sitemap cohorts and a reviewed release difference.</desc>
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0A0D0C"/>
+      <stop offset="1" stop-color="#111815"/>
+    </linearGradient>
+    <linearGradient id="emerald" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#A7F3C4"/>
+      <stop offset="1" stop-color="#58C98A"/>
+    </linearGradient>
+    <pattern id="grid" width="48" height="48" patternUnits="userSpaceOnUse">
+      <path d="M48 0H0V48" fill="none" stroke="#DDE8E1" stroke-opacity="0.055"/>
+    </pattern>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="20" stdDeviation="28" flood-color="#000000" flood-opacity="0.34"/>
+    </filter>
+  </defs>
+
+  <rect width="1280" height="640" fill="url(#background)"/>
+  <rect width="1280" height="640" fill="url(#grid)"/>
+  <rect x="0" y="0" width="12" height="640" fill="url(#emerald)"/>
+
+  <g transform="translate(76 60)">
+    <g transform="translate(0 0) scale(.44)" fill="#F4F7F5">
+      <path d="m 76.729167,74.083328 c -20.207519,1.852811 -40.257701,12.034356 -62.863345,26.337852 -0.520664,0.32944 -0.63325,0.20491 -0.243842,-0.2726 20.18474,-24.751337 64.580758,-45.387799 103.57688,-41.614041 0.90491,0.08757 2.87574,0.533729 0.65385,2.606759 -10.9659,10.476419 -22.295719,20.479227 -33.233069,30.992387 -2.884917,2.79172 -6.076417,3.41256 -9.6928,2.16385 -9.973284,-4.023033 -20.689337,-6.162277 -31.804889,-4.080485 -0.605619,0.113424 -0.715587,-0.107755 -0.238457,-0.497611 9.196074,-7.51398 21.79435,-12.154988 33.845672,-15.636111 z M 41.014817,72.807281 C 59.028627,54.52516 80.65455,40.004702 99.972621,23.301551 c 3.511089,-3.03582 4.341169,-1.760955 4.592539,2.430809 0.4324,7.210425 0.81057,14.446109 1.18897,21.671189 0.18751,3.580678 -1.00948,4.965075 -4.19499,5.282353 -26.200025,2.609589 -47.123318,13.283124 -60.342868,20.389514 -0.542631,0.2917 -0.633916,0.170767 -0.201455,-0.268135 z" transform="matrix(1.0033288,0,0,1.0050738,-0.2050289,-8.5119094)"/>
+    </g>
+    <text x="64" y="37" fill="#F4F7F5" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="25" font-weight="650" letter-spacing="7">EDILEC</text>
+    <text x="0" y="105" fill="#83DBA7" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="18" font-weight="700" letter-spacing="3">OPEN SOURCE / CLI</text>
+  </g>
+
+  <g transform="translate(76 224)">
+    <text x="0" y="0" fill="#F4F7F5" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="70" font-weight="720" letter-spacing="-2">Sitemap Cohort</text>
+    <text x="0" y="78" fill="#F4F7F5" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="70" font-weight="720" letter-spacing="-2">Auditor</text>
+    <text x="0" y="137" fill="#AEB9B3" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="25" font-weight="450">Evidence for sitemap releases.</text>
+  </g>
+
+  <g transform="translate(76 534)">
+    <circle cx="7" cy="-7" r="7" fill="#7BE2A5"/>
+    <text x="30" y="0" fill="#B8C3BD" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="17" font-weight="650" letter-spacing="2.1">COMPARE</text>
+    <circle cx="158" cy="-7" r="3" fill="#526059"/>
+    <text x="181" y="0" fill="#B8C3BD" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="17" font-weight="650" letter-spacing="2.1">VALIDATE</text>
+    <circle cx="318" cy="-7" r="3" fill="#526059"/>
+    <text x="341" y="0" fill="#B8C3BD" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="17" font-weight="650" letter-spacing="2.1">REPORT</text>
+  </g>
+
+  <g transform="translate(780 92)" filter="url(#shadow)">
+    <rect width="418" height="456" rx="28" fill="#151C19" stroke="#6E8077" stroke-opacity="0.42"/>
+    <text x="36" y="52" fill="#8F9D96" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="700" letter-spacing="2.2">RELEASE COHORT</text>
+    <text x="36" y="88" fill="#F4F7F5" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="22" font-weight="650">before</text>
+    <text x="282" y="88" fill="#83DBA7" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="22" font-weight="650">after</text>
+
+    <g fill="none" stroke-linecap="round" stroke-width="8">
+      <path d="M42 130H180" stroke="#68756F"/>
+      <path d="M42 174H214" stroke="#68756F"/>
+      <path d="M42 218H158" stroke="#68756F"/>
+      <path d="M42 262H196" stroke="#68756F"/>
+
+      <path d="M282 130H374" stroke="#DDE8E1"/>
+      <path d="M282 174H350" stroke="#DDE8E1"/>
+      <path d="M282 218H385" stroke="#7BE2A5"/>
+      <path d="M282 262H338" stroke="#DDE8E1"/>
+      <path d="M282 306H370" stroke="#7BE2A5"/>
+    </g>
+
+    <path d="M236 127v168" stroke="#435049" stroke-width="2" stroke-dasharray="5 9"/>
+    <path d="M218 207l18 18 18-18" fill="none" stroke="#83DBA7" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" transform="rotate(-90 236 216)"/>
+
+    <rect x="34" y="362" width="350" height="60" rx="16" fill="#0D1210" stroke="#33423A"/>
+    <circle cx="64" cy="392" r="8" fill="#7BE2A5"/>
+    <text x="86" y="399" fill="#D8E2DD" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="16">policy: PASS</text>
+  </g>
+</svg>

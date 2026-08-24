@@ -1,6 +1,6 @@
 {
   "name": "sitemap-cohort-auditor",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Audit sitemap URL cohorts, image coverage, metadata quality, and release-to-release changes.",
   "author": "Edilec Private Limited",
   "homepage": "https://github.com/edilec/sitemap-cohort-auditor#readme",
@@ -17,7 +17,11 @@
   },
   "scripts": {
     "audit": "node ./bin/sitemap-cohort-auditor.mjs",
-    "test": "node --test"
+    "docs:check": "node ./scripts/check-links.mjs",
+    "package:check": "npm pack --dry-run",
+    "test": "node --test",
+    "test:coverage": "node --test --experimental-test-coverage",
+    "verify": "npm test && npm run docs:check && npm run package:check"
   },
   "engines": {
     "node": ">=20"
@@ -25,12 +29,16 @@
   "files": [
     "bin/",
     "lib/",
+    "docs/",
     "examples/",
     "README.md",
     "CHANGELOG.md",
+    "CODE_OF_CONDUCT.md",
     "LICENSE",
     "SECURITY.md",
-    "CONTRIBUTING.md"
+    "CONTRIBUTING.md",
+    "MAINTAINERS.md",
+    "SUPPORT.md"
   ],
   "keywords": [
     "sitemap",

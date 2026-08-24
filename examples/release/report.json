@@ -1,0 +1,70 @@
+{
+  "schemaVersion": 1,
+  "source": "./examples/release/after/index.xml",
+  "summary": {
+    "documents": 3,
+    "sitemapReferences": 2,
+    "urlEntries": 5,
+    "uniqueUrls": 5,
+    "duplicateUrls": 0,
+    "duplicateUrlEntries": 0,
+    "imageEntries": 2,
+    "uniqueImages": 2,
+    "lastmodValues": 7,
+    "invalidLastmodValues": 0,
+    "fragmentUrls": 0,
+    "invalidUrls": 0,
+    "missingLocs": 0
+  },
+  "hosts": [
+    {
+      "name": "www.example.com",
+      "count": 5
+    }
+  ],
+  "schemes": [
+    {
+      "name": "https",
+      "count": 5
+    }
+  ],
+  "duplicates": [],
+  "fragments": [],
+  "invalidLastmods": [],
+  "invalidUrls": [],
+  "missingLocs": [],
+  "documents": [
+    {
+      "source": "./examples/release/after/content.xml",
+      "type": "urlset"
+    },
+    {
+      "source": "./examples/release/after/index.xml",
+      "type": "sitemapindex"
+    },
+    {
+      "source": "./examples/release/after/pages.xml",
+      "type": "urlset"
+    }
+  ],
+  "skippedAlreadyVisited": [],
+  "comparison": {
+    "source": "./examples/release/before.xml",
+    "previousUniqueUrls": 4,
+    "addedCount": 2,
+    "removedCount": 1,
+    "added": [
+      "https://www.example.com/blog/security-model/",
+      "https://www.example.com/docs/configuration/"
+    ],
+    "removed": [
+      "https://www.example.com/docs/legacy/"
+    ]
+  },
+  "policy": {
+    "schemaVersion": 1,
+    "passed": true,
+    "findings": [],
+    "source": "./examples/release/policy.json"
+  }
+}

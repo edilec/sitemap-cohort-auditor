@@ -6,6 +6,16 @@ The project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-08-24
+
+### Added
+
+- Added a reproducible before/after release example with a checked-in JSON report.
+- Added architecture, data-flow, support, maintenance, and expanded non-goal documentation.
+- Added a local documentation-link check, Node.js 22 CI coverage, and built-in coverage evidence.
+- Added a manually dispatched, approval-ready release workflow with version and tag validation.
+- Added repository social-preview artwork with an editable SVG source.
+
 ## [0.2.0] - 2026-08-14
 
 ### Added
@@ -47,7 +57,8 @@ The project follows [Semantic Versioning](https://semver.org/).
 
 - This initial release should not be used with untrusted remote sitemaps. Use version 0.1.1 or newer.
 
-[Unreleased]: https://github.com/edilec/sitemap-cohort-auditor/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/edilec/sitemap-cohort-auditor/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/edilec/sitemap-cohort-auditor/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/edilec/sitemap-cohort-auditor/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/edilec/sitemap-cohort-auditor/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/edilec/sitemap-cohort-auditor/releases/tag/v0.1.0

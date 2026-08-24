@@ -16,6 +16,15 @@ Please use GitHub's [private vulnerability reporting form](https://github.com/ed
 
 Include the affected version, operating system and Node.js version, reproduction steps, expected behavior, and observed impact. Maintainers will acknowledge the report when it is received and will coordinate disclosure after a fix is available.
 
+Do not send a production sitemap, customer URL inventory, credential, private
+hostname, or access token unless a maintainer specifically requests a reduced
+and sanitized example through the private advisory. A synthetic fixture is
+usually enough to reproduce parser and traversal behavior.
+
 ## Scope notes
 
 The utility reads local files and retrieves user-supplied HTTPS sitemap URLs. An optional policy gate reads a local JSON file. Treat sitemap and policy files as untrusted input, run the CLI with the least filesystem access it needs, and review URLs before using them in another automated workflow.
+
+The trust boundaries and deliberate restrictions are described in
+[Architecture and data flow](./docs/architecture.md). Known non-goals are
+documented in [Limitations and non-goals](./docs/limitations-and-non-goals.md).

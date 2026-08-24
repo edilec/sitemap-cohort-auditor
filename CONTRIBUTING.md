@@ -6,7 +6,7 @@ Contributions that make sitemap audits more accurate, predictable, or easier to 
 
 1. Install Node.js 20 or newer.
 2. Run `npm install` from this directory. The project has no runtime dependencies.
-3. Run `npm test` before submitting a change.
+3. Run `npm run verify` before submitting a change.
 
 ## Change guidelines
 
@@ -16,9 +16,14 @@ Contributions that make sitemap audits more accurate, predictable, or easier to 
 - Preserve deterministic ordering in JSON output.
 - Document any new network access, filesystem behavior, limits, or output fields.
 - Avoid claims about indexing or ranking outcomes; this tool reports sitemap evidence only.
+- Keep actions pinned to reviewed full commit SHAs and use the minimum workflow permissions needed.
 
 ## Pull requests
 
 Describe the problem, the chosen behavior, tests run, and any compatibility impact. Keep unrelated formatting or refactoring out of the same change when possible.
+
+Maintainer responsibilities and the review path are documented in
+[MAINTAINERS.md](./MAINTAINERS.md). Support boundaries are documented in
+[SUPPORT.md](./SUPPORT.md).
 
 By contributing, you agree that your contribution is licensed under the MIT License included in this project.
