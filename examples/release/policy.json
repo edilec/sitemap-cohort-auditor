@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "allowedHosts": ["www.example.com"],
+  "allowedSchemes": ["https"],
+  "minUniqueUrls": 5,
+  "minUniqueImages": 2,
+  "maxDuplicateUrls": 0,
+  "maxDuplicateUrlEntries": 0,
+  "maxInvalidLastmodValues": 0,
+  "maxFragmentUrls": 0,
+  "maxInvalidUrls": 0,
+  "maxMissingLocs": 0,
+  "maxRemovedUrls": 1
+}

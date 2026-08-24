@@ -1,0 +1,8 @@
+# Default review ownership for the project.
+* @edilec
+
+# Security-sensitive input, traversal, policy, and automation paths.
+/bin/ @edilec
+/lib/ @edilec
+/.github/workflows/ @edilec
+/SECURITY.md @edilec

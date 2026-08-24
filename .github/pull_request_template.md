@@ -9,7 +9,8 @@ Explain the release-review problem this solves and why it belongs in this focuse
 ## Validation
 
 - [ ] `npm test`
-- [ ] `npm pack --dry-run`
+- [ ] `npm run docs:check`
+- [ ] `npm run package:check`
 - [ ] New or changed behavior has focused tests
 - [ ] Documentation and examples match the implementation
 
@@ -18,4 +19,4 @@ Explain the release-review problem this solves and why it belongs in this focuse
 - [ ] No secrets, personal data or confidential third-party URLs are included
 - [ ] Remote-input restrictions and streaming limits are preserved or intentionally reviewed
 - [ ] Text and JSON output remain deterministic and terminal-safe
-- [ ] Node.js 20 and 24 compatibility is preserved
+- [ ] Node.js 20, 22 and 24 compatibility is preserved

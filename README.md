@@ -7,6 +7,10 @@
 
 A dependency-free Node.js command-line utility for checking sitemap cohorts before and after a site release. It follows nested sitemap indexes, counts page and image entries, and highlights changes or metadata problems that are easy to miss in very large sitemaps.
 
+**Status:** maintained. The supported runtime is Node.js 20 or newer; CI covers
+Node.js 20, 22, and 24. Reports use schema version `1`; release-policy files use
+schema version `1`.
+
 ## Requirements
 
 - Node.js 20 or newer
@@ -31,7 +35,7 @@ sitemap-cohort-auditor ./sitemap.xml
 To install the recommended release directly from its checksummed package:
 
 ```sh
-npm install --global https://github.com/edilec/sitemap-cohort-auditor/releases/download/v0.2.0/sitemap-cohort-auditor-0.2.0.tgz
+npm install --global https://github.com/edilec/sitemap-cohort-auditor/releases/download/v0.2.1/sitemap-cohort-auditor-0.2.1.tgz
 sitemap-cohort-auditor ./sitemap.xml
 ```
 
@@ -75,6 +79,25 @@ The report includes:
 - optionally, sorted added and removed URL cohorts.
 
 Accepted `<lastmod>` formats are `YYYY-MM-DD` and a complete ISO/W3C-style timestamp with seconds and a `Z` or numeric timezone, such as `2026-08-10T12:30:00+05:30`.
+
+## Reproducible release example
+
+[`examples/release/`](./examples/release/) contains a synthetic before/after
+sitemap release, a passing policy, and the exact normalized JSON report. Run it
+from the repository root:
+
+```sh
+node ./bin/sitemap-cohort-auditor.mjs \
+  ./examples/release/after/index.xml \
+  --compare ./examples/release/before.xml \
+  --policy ./examples/release/policy.json \
+  --json
+```
+
+The example demonstrates a five-URL sitemap graph with two additions, one
+removal, two image declarations, and no invalid metadata. A test keeps the
+checked-in [`report.json`](./examples/release/report.json) synchronized with the
+CLI output.
 
 ## Enforce a release policy in CI
 
@@ -145,6 +168,14 @@ not crawl listed pages or prove that a release is indexed.
 - Gzip content is detected from its bytes, so local and remote `.gz` files are supported even when their names are unconventional.
 - Human-readable output escapes terminal control and bidirectional formatting characters.
 
+## Architecture
+
+The utility separates source loading and traversal, report finalization,
+comparison, policy evaluation, and presentation. Remote fetches cross a strict
+same-origin HTTPS boundary; local indexes cannot initiate network access. See
+[Architecture and data flow](./docs/architecture.md) for the component map,
+trust boundaries, resource limits, and security-sensitive change areas.
+
 ## Limitations
 
 This is a focused sitemap checker, not a general XML validator or crawler.
@@ -156,6 +187,10 @@ This is a focused sitemap checker, not a general XML validator or crawler.
 - A successful audit does not guarantee indexing. Search engines make their own crawling and indexing decisions.
 - The byte limit is per document. Very large sitemap graphs can still require substantial aggregate work, so do not expose this CLI as an unauthenticated hosted service.
 - Local child paths can traverse directories or resolve through symlinks. Review untrusted local sitemap indexes before running them in a privileged environment.
+
+The expanded [limitations and non-goals](./docs/limitations-and-non-goals.md)
+document explains the XML, URL-comparison, remote-origin, resource, and policy
+boundaries in detail.
 
 ## Exit codes
 
@@ -176,6 +211,11 @@ MIT. See [LICENSE](./LICENSE).
 - [Changelog](./CHANGELOG.md)
 - [Contributing guide](./CONTRIBUTING.md)
 - [Code of conduct](./CODE_OF_CONDUCT.md)
+- [Architecture and data flow](./docs/architecture.md)
+- [Limitations and non-goals](./docs/limitations-and-non-goals.md)
+- [Support](./SUPPORT.md)
+- [Maintainers](./MAINTAINERS.md)
+- [Release process](./docs/releasing.md)
 
 ## Maintainer
 

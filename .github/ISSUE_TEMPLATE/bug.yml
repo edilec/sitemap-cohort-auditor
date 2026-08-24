@@ -10,7 +10,7 @@ body:
     id: version
     attributes:
       label: Sitemap Cohort Auditor version
-      placeholder: 0.1.1
+      placeholder: 0.2.1
     validations:
       required: true
   - type: input
@@ -46,6 +46,12 @@ body:
       label: Observed behavior
     validations:
       required: true
+  - type: textarea
+    id: fixture
+    attributes:
+      label: Minimal synthetic fixture
+      description: Paste a reduced sitemap only when it contains no private or third-party data.
+      render: xml
   - type: checkboxes
     id: safety
     attributes:
