@@ -1,8 +1,8 @@
 # Default review ownership for the project.
-* @edilec
+* @edilec @KRISHNAMMurarka
 
 # Security-sensitive input, traversal, policy, and automation paths.
-/bin/ @edilec
-/lib/ @edilec
-/.github/workflows/ @edilec
-/SECURITY.md @edilec
+/bin/ @edilec @KRISHNAMMurarka
+/lib/ @edilec @KRISHNAMMurarka
+/.github/workflows/ @edilec @KRISHNAMMurarka
+/SECURITY.md @edilec @KRISHNAMMurarka
