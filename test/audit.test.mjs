@@ -146,6 +146,89 @@ test('compares exact decoded URL cohorts', async () => {
   assert.equal(report.comparison.removedCount, 1);
 });
 
+test('recognizes roots only after a valid leading XML preamble', async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), 'sitemap-auditor-preamble-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+
+  const valid = join(directory, 'valid.xml');
+  await writeFile(valid, [
+    '\uFEFF  \n<?xml version="1.0" encoding="UTF-8"?>\n',
+    '<!-- first -->\n',
+    '<!-- <?xml version="9.9"?><sitemapindex>decoy</sitemapindex> -->\n',
+    '<urlset><url><loc>https://example.test/real</loc></url></urlset>',
+  ].join(''));
+
+  const report = await auditSitemap(valid);
+  assert.equal(report.summary.documents, 1);
+  assert.equal(report.summary.uniqueUrls, 1);
+  assert.equal(report.documents[0].type, 'urlset');
+});
+
+test('rejects malformed declarations and leading comments', async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), 'sitemap-auditor-bad-preamble-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const cases = [
+    {
+      name: 'declaration.xml',
+      xml: '<?xml version="1.0"<urlset></urlset>',
+      error: /Malformed XML preamble: unterminated XML declaration/,
+    },
+    {
+      name: 'comment.xml',
+      xml: '<!-- never closed <urlset></urlset>',
+      error: /Malformed XML preamble: unterminated comment/,
+    },
+    {
+      name: 'nested-comment.xml',
+      xml: '<!-- outer <!-- inner --> --><urlset></urlset>',
+      error: /Malformed XML preamble: comments cannot contain "--"/,
+    },
+  ];
+
+  for (const fixture of cases) {
+    const path = join(directory, fixture.name);
+    await writeFile(path, fixture.xml);
+    await assert.rejects(auditSitemap(path), fixture.error);
+  }
+});
+
+test('preserves CDATA scalar text without treating it as nested markup', async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), 'sitemap-auditor-cdata-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const path = join(directory, 'sitemap.xml');
+  await writeFile(path, [
+    '<urlset>',
+    '<url><loc><![CDATA[https://example.test/path?x=1&y=2]]></loc></url>',
+    '<url><loc><![CDATA[<tag>]]></loc></url>',
+    '<url><loc>&lt;b&gt;</loc></url>',
+    '</urlset>',
+  ].join(''));
+
+  const report = await auditSitemap(path);
+  assert.equal(report.summary.urlEntries, 3);
+  assert.equal(report.summary.invalidUrls, 2);
+  assert.deepEqual(report.invalidUrls.map(({ url }) => url), ['<b>', '<tag>']);
+  assert.deepEqual(report.hosts, [{ name: 'example.test', count: 1 }]);
+});
+
+test('rejects nested markup and unterminated CDATA in sitemap scalar fields', async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), 'sitemap-auditor-bad-scalar-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const nested = join(directory, 'nested.xml');
+  const cdata = join(directory, 'cdata.xml');
+  await writeFile(nested, '<urlset><url><loc>https://e.test/<b>x</b></loc></url></urlset>');
+  await writeFile(cdata, '<urlset><url><loc><![CDATA[https://e.test/</loc></url></urlset>');
+
+  await assert.rejects(
+    auditSitemap(nested),
+    /Sitemap scalar values must not contain nested markup/,
+  );
+  await assert.rejects(
+    auditSitemap(cdata),
+    /Unterminated CDATA section in sitemap scalar value/,
+  );
+});
+
 test('accepts W3C-style lastmod values and rejects invalid calendar values', () => {
   assert.equal(isIsoLastmod('2024-02-29'), true);
   assert.equal(isIsoLastmod('2026-08-10T12:30:00.123+05:30'), true);
