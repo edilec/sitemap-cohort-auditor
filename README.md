@@ -35,7 +35,7 @@ sitemap-cohort-auditor ./sitemap.xml
 To install the recommended release directly from its checksummed package:
 
 ```sh
-npm install --global https://github.com/edilec/sitemap-cohort-auditor/releases/download/v0.2.1/sitemap-cohort-auditor-0.2.1.tgz
+npm install --global https://github.com/edilec/sitemap-cohort-auditor/releases/download/v0.2.2/sitemap-cohort-auditor-0.2.2.tgz
 sitemap-cohort-auditor ./sitemap.xml
 ```
 
