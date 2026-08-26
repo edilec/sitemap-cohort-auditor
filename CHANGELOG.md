@@ -6,6 +6,8 @@ The project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-08-26
+
 ### Security
 
 - Replaced regex-based scalar markup removal with explicit CDATA handling and
@@ -64,7 +66,8 @@ The project follows [Semantic Versioning](https://semver.org/).
 
 - This initial release should not be used with untrusted remote sitemaps. Use version 0.1.1 or newer.
 
-[Unreleased]: https://github.com/edilec/sitemap-cohort-auditor/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/edilec/sitemap-cohort-auditor/compare/v0.2.2...HEAD
+[0.2.2]: https://github.com/edilec/sitemap-cohort-auditor/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/edilec/sitemap-cohort-auditor/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/edilec/sitemap-cohort-auditor/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/edilec/sitemap-cohort-auditor/compare/v0.1.0...v0.1.1
