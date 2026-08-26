@@ -6,6 +6,13 @@ The project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Security
+
+- Replaced regex-based scalar markup removal with explicit CDATA handling and
+  rejection of nested markup in sitemap scalar fields.
+- Restricted XML declaration and comment handling to a validated leading
+  preamble so embedded or malformed markers cannot influence root detection.
+
 ## [0.2.1] - 2026-08-24
 
 ### Added
