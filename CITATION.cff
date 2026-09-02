@@ -1,0 +1,13 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it using the metadata in this file."
+title: "Sitemap Cohort Auditor"
+type: software
+authors:
+  - name: "Edilec Private Limited"
+    website: "https://edilec.com/"
+abstract: "Dependency-free command-line tool for auditing sitemap URL cohorts, image coverage, metadata quality, and release-to-release changes."
+version: "0.2.2"
+date-released: 2026-08-26
+license: MIT
+repository-code: "https://github.com/edilec/sitemap-cohort-auditor"
+url: "https://edilec.com/"
