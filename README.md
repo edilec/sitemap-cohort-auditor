@@ -99,6 +99,11 @@ removal, two image declarations, and no invalid metadata. A test keeps the
 checked-in [`report.json`](./examples/release/report.json) synchronized with the
 CLI output.
 
+The terminal preview below is rendered from that public synthetic fixture. It
+contains no customer URLs, credentials, traffic, indexing or ranking results.
+
+![Terminal output from Sitemap Cohort Auditor's public synthetic release example showing two additions, one removal and a passing policy.](./assets/social-preview/sitemap-cohort-auditor-release-example.png)
+
 ## Enforce a release policy in CI
 
 Add `--policy` to turn selected sitemap findings into an explicit CI gate:
