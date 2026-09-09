@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1000" viewBox="0 0 1600 1000" role="img" aria-labelledby="title description">
+  <title id="title">Sitemap Cohort Auditor synthetic release example</title>
+  <desc id="description">Terminal output from the public synthetic release fixture: five unique URLs, two additions, one removal, two image declarations, and a passing local policy.</desc>
+  <rect width="1600" height="1000" fill="#090b10"/>
+  <rect x="52" y="48" width="1496" height="904" rx="28" fill="#11151e" stroke="#273144" stroke-width="2"/>
+  <circle cx="96" cy="92" r="10" fill="#fb7185"/>
+  <circle cx="128" cy="92" r="10" fill="#fbbf24"/>
+  <circle cx="160" cy="92" r="10" fill="#34d399"/>
+  <text x="204" y="101" fill="#9fb0cc" font-family="SFMono-Regular, Menlo, Consolas, monospace" font-size="24">synthetic release fixture · local execution</text>
+  <text x="96" y="164" fill="#f8fafc" font-family="SFMono-Regular, Menlo, Consolas, monospace" font-size="32" font-weight="700">Sitemap Cohort Auditor v0.2.2</text>
+  <text x="96" y="212" fill="#8da2c5" font-family="SFMono-Regular, Menlo, Consolas, monospace" font-size="24">$ node ./bin/sitemap-cohort-auditor.mjs examples/release/after/index.xml </text>
+  <text x="126" y="247" fill="#8da2c5" font-family="SFMono-Regular, Menlo, Consolas, monospace" font-size="24">--compare examples/release/before.xml --policy examples/release/policy.json</text>
+  <line x1="96" y1="286" x2="1504" y2="286" stroke="#273144" stroke-width="2"/>
+  <g font-family="SFMono-Regular, Menlo, Consolas, monospace" font-size="26">
+    <text x="96" y="340" fill="#dbeafe">Documents: <tspan fill="#f8fafc">3</tspan> <tspan fill="#8da2c5">(2 sitemap references)</tspan></text>
+    <text x="96" y="384" fill="#dbeafe">URLs: <tspan fill="#f8fafc">5 entries, 5 unique</tspan></text>
+    <text x="96" y="428" fill="#dbeafe">Images: <tspan fill="#f8fafc">2 entries, 2 unique</tspan></text>
+    <text x="96" y="472" fill="#dbeafe">Lastmod: <tspan fill="#f8fafc">7 values, 0 invalid/non-ISO</tspan></text>
+    <text x="96" y="516" fill="#dbeafe" xml:space="preserve">Invalid URLs: <tspan fill="#f8fafc">0</tspan> <tspan fill="#dbeafe">Missing &lt;loc&gt;: </tspan><tspan fill="#f8fafc">0</tspan></text>
+  </g>
+  <rect x="96" y="560" width="1408" height="252" rx="16" fill="#0b1018" stroke="#273144" stroke-width="2"/>
+  <text x="128" y="614" fill="#cbd5e1" font-family="SFMono-Regular, Menlo, Consolas, monospace" font-size="26">Comparison</text>
+  <text x="128" y="662" fill="#86efac" font-family="SFMono-Regular, Menlo, Consolas, monospace" font-size="26">+ https://www.example.com/blog/security-model/</text>
+  <text x="128" y="706" fill="#86efac" font-family="SFMono-Regular, Menlo, Consolas, monospace" font-size="26">+ https://www.example.com/docs/configuration/</text>
+  <text x="128" y="750" fill="#fda4af" font-family="SFMono-Regular, Menlo, Consolas, monospace" font-size="26">- https://www.example.com/docs/legacy/</text>
+  <rect x="96" y="848" width="480" height="64" rx="32" fill="#123a31"/>
+  <text x="130" y="890" fill="#bbf7d0" font-family="SFMono-Regular, Menlo, Consolas, monospace" font-size="27" font-weight="700">POLICY: PASS</text>
+  <text x="620" y="890" fill="#8da2c5" font-family="SFMono-Regular, Menlo, Consolas, monospace" font-size="24">Public synthetic data · no crawl or ranking claim</text>
+</svg>
