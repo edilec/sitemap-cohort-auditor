@@ -12,13 +12,16 @@ import { evaluatePolicy, loadPolicyFile } from '../lib/policy.mjs';
 const HELP = `sitemap-cohort-auditor ${VERSION}
 
 Usage:
-  sitemap-cohort-auditor <SITEMAP> [--compare <OLD_SITEMAP>] [--policy <POLICY_JSON>] [--json]
+  sitemap-cohort-auditor <SITEMAP> [--compare <BASELINE>] [--policy <POLICY_JSON>] [--json]
 
 Arguments:
   SITEMAP              Local sitemap XML/.gz file or HTTPS URL
 
 Options:
-  --compare <SOURCE>   Compare the current unique URL cohort with an older sitemap
+  --compare <SOURCE>   Compare the current unique URL cohort with an older
+                       sitemap or with an earlier --json report from this tool
+  --with-cohort        Include the unique URL list in the JSON report so a
+                       later run can use it as a --compare baseline
   --policy <FILE>      Apply a bounded local JSON policy and fail CI on violations
   --json               Emit deterministic JSON instead of a text summary
   -h, --help           Show this help
@@ -31,6 +34,7 @@ function parseArguments(argv) {
     compare: null,
     policy: null,
     json: false,
+    withCohort: false,
     help: false,
     version: false,
   };
@@ -40,6 +44,8 @@ function parseArguments(argv) {
 
     if (argument === '--json') {
       options.json = true;
+    } else if (argument === '--with-cohort') {
+      options.withCohort = true;
     } else if (argument === '--compare') {
       const value = argv[index + 1];
       if (!value || value.startsWith('-')) {
@@ -113,7 +119,10 @@ async function main() {
   }
 
   try {
-    const report = await auditSitemap(options.source, { compare: options.compare });
+    const report = await auditSitemap(options.source, {
+      compare: options.compare,
+      withCohort: options.withCohort,
+    });
     if (loadedPolicy) {
       const result = evaluatePolicy(report, loadedPolicy.policy);
       report.policy = {
