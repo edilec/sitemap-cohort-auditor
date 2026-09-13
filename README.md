@@ -57,6 +57,39 @@ sitemap-cohort-auditor ./after/sitemap.xml --compare ./before/sitemap.xml
 
 The comparison uses exact, decoded `<loc>` strings from unique URL entries. It reports URLs added to the current cohort and URLs removed from it. Invalid URL strings are retained in this comparison so a malformed entry cannot silently disappear from review.
 
+### Compare against an earlier report
+
+After a release the previous sitemap is usually gone, but the audit artifact
+you stored is not. `--compare` also accepts an earlier `--json` report from
+this tool, so a CI job can compare each release against the one before it
+without keeping old sitemaps around.
+
+A report only carries its URL list when it was produced with `--with-cohort`:
+
+```sh
+# during the release that is about to become "before"
+sitemap-cohort-auditor ./sitemap.xml --json --with-cohort > release-42.json
+
+# during the next release
+sitemap-cohort-auditor ./sitemap.xml --compare ./release-42.json --json
+```
+
+Every report always records `cohort.count` and `cohort.digest`, a SHA-256
+fingerprint of the sorted unique URLs. If the baseline report has the digest
+but not the URL list, the comparison says so rather than reporting zero
+movement:
+
+| Baseline | `comparison.evidence` | What you get |
+| --- | --- | --- |
+| sitemap, or report with `--with-cohort` | `urls` | exact added and removed lists |
+| report without `--with-cohort` | `digest-only` | `cohortChanged` only; added and removed are **unknown**, not zero |
+
+A `maxRemovedUrls` policy rule against a digest-only baseline is a configuration
+error, not a pass. Unknown evidence never satisfies a threshold.
+
+A report whose `cohort.urls` does not match its own `cohort.digest` is
+rejected, so an edited artifact cannot quietly redefine the baseline.
+
 ## Machine-readable output
 
 Add `--json` for stable, sorted JSON suitable for CI or release records:
@@ -75,8 +108,9 @@ The report includes:
 - invalid or non-ISO `<lastmod>` values;
 - page URLs containing fragments;
 - invalid page URLs and entries missing `<loc>`;
-- already-visited sitemap children, including circular references; and
-- optionally, sorted added and removed URL cohorts.
+- already-visited sitemap children, including circular references;
+- `cohort.count` and `cohort.digest`, plus `cohort.urls` with `--with-cohort`; and
+- optionally, sorted added and removed URL cohorts with the evidence they rest on.
 
 Accepted `<lastmod>` formats are `YYYY-MM-DD` and a complete ISO/W3C-style timestamp with seconds and a `Z` or numeric timezone, such as `2026-08-10T12:30:00+05:30`.
 

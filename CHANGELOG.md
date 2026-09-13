@@ -4,6 +4,30 @@ All notable changes to Sitemap Cohort Auditor are documented here.
 
 The project follows [Semantic Versioning](https://semver.org/).
 
+## Unreleased
+
+### Added
+
+- `--compare` accepts an earlier `--json` report from this tool, not only an
+  older sitemap. After a release the previous sitemap is usually gone while the
+  stored audit artifact is not.
+- every report records `cohort.count` and `cohort.digest`, a SHA-256
+  fingerprint over the sorted unique URLs, so a baseline can prove whether the
+  cohort changed.
+- `--with-cohort` includes `cohort.urls` in the JSON report so a later run can
+  recover exactly which URLs moved.
+- `comparison.evidence` distinguishes `urls` from `digest-only`, alongside
+  `cohortChanged`, `previousCohortDigest`, and `baselineKind`.
+- exported `cohortDigest`.
+
+### Changed
+
+- a digest-only baseline reports added and removed URLs as unknown instead of
+  zero, and a `maxRemovedUrls` policy rule against one is rejected as a
+  configuration error rather than evaluated as compliance.
+- a comparison report whose `cohort.urls` disagrees with its own
+  `cohort.digest` is rejected.
+
 ## [Unreleased]
 
 ## [0.2.2] - 2026-08-26
