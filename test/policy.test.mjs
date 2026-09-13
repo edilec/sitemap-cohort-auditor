@@ -114,8 +114,10 @@ test('evaluates every supported rule with stable structured findings', () => {
   assert.deepEqual(result.findings.map(({ code }) => code), [
     'DISALLOWED_HOST',
     'DISALLOWED_SCHEME',
-    'MAX_DUPLICATE_URL_ENTRIES',
+    // Code-unit order: 'S' (0x53) sorts before '_' (0x5F). Locale collation
+    // treats the underscore as ignorable punctuation and reverses these two.
     'MAX_DUPLICATE_URLS',
+    'MAX_DUPLICATE_URL_ENTRIES',
     'MAX_FRAGMENT_URLS',
     'MAX_INVALID_LASTMOD_VALUES',
     'MAX_INVALID_URLS',

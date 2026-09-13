@@ -20,6 +20,18 @@ The project follows [Semantic Versioning](https://semver.org/).
   `cohortChanged`, `previousCohortDigest`, and `baselineKind`.
 - exported `cohortDigest`.
 
+### Fixed
+
+- findings, duplicate lists, host and scheme counts, and cohort URLs are now
+  ordered by UTF-16 code unit rather than by locale. `localeCompare` depends on
+  ICU data that varies between Node builds and platforms, so the same sitemap
+  could produce differently ordered output on two correct machines and a release
+  comparison diffing those reports would see changes that are not there.
+  This changes one observable order: `MAX_DUPLICATE_URLS` now precedes
+  `MAX_DUPLICATE_URL_ENTRIES`, because `S` sorts before `_` by code point while
+  locale collation treats the underscore as ignorable punctuation. The checked-in
+  release fixture is unaffected.
+
 ### Changed
 
 - a digest-only baseline reports added and removed URLs as unknown instead of
