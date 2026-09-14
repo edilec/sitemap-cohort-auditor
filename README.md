@@ -190,6 +190,12 @@ The policy file is never fetched over the network and is limited to 64 KiB. A
 policy gate checks the sitemap declaration supplied to this command; it does
 not crawl listed pages or prove that a release is indexed.
 
+A policy file that does not parse is reported by position, line, and column,
+never by quoting it back. `JSON.parse` embeds the input in one of its two error
+messages, so a policy file short enough to be only a credential would otherwise
+be reproduced in full by its own failure — and escaping the diagnostic for the
+terminal does not remove it, because a credential is printable.
+
 ## Safety limits
 
 - HTTP input is rejected. Remote child sitemaps and redirects must stay on the starting URL's HTTPS origin.

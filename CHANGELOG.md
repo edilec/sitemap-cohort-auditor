@@ -6,6 +6,17 @@ The project follows [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+### Fixed
+
+- a policy file that does not parse is no longer quoted back on stderr.
+  `JSON.parse` embeds the input in one of its two error messages
+  (`Unexpected token 'A', "AKIA…" is not valid JSON`), so a policy file short
+  enough to be only a credential was reproduced in full by
+  `Could not parse policy file … as JSON: …`, and a longer one ten characters
+  at a time. `escapeTerminalText` did not stop it: a credential is printable.
+  `parseFailureDetail` in `lib/policy.mjs` keeps the position, line, and column
+  and drops the quotation.
+
 ### Added
 
 - `--compare` accepts an earlier `--json` report from this tool, not only an

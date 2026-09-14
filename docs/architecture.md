@@ -93,6 +93,14 @@ emits the complete report and exits with code `3`; loading or parsing failures
 use different exit codes. Policies are local, versioned JSON and cannot trigger
 network access.
 
+A policy file that does not parse is reported by position, line, and column
+only. `JSON.parse` has two error messages and one of them embeds the input —
+`Unexpected token 'A', "AKIA…" is not valid JSON` for a short file, and a
+ten-character window around the offending character for a long one — so a
+policy file that is only a credential would otherwise be reproduced by its own
+failure. Terminal escaping does not remove it, because a credential is
+printable; `parseFailureDetail` drops the quotation and keeps the position.
+
 ## Security-sensitive changes
 
 Changes to source normalization, redirects, streaming bounds, decompression,
