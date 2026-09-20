@@ -4,6 +4,7 @@ import { realpath, stat } from 'node:fs/promises';
 
 import {
   auditSitemap,
+  completeReportEnvelope,
   escapeTerminalText,
   formatJsonReport,
   formatTextReport,
@@ -163,6 +164,7 @@ async function main() {
       if (result.status === 'incomplete' || report.status === 'incomplete') report.status = 'incomplete';
       else if (result.status === 'fail') report.status = 'fail';
     }
+    completeReportEnvelope(report);
     const output = options.json
       ? formatJsonReport(report)
       : formatTextReport(report);

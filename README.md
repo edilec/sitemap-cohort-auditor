@@ -106,6 +106,9 @@ sitemap-cohort-auditor ./sitemap.xml --json > sitemap-audit.json
 
 The report includes:
 
+- the house envelope (`tool`, `status`, `summary.checked/errors/warnings`,
+  `findings`); `checked` counts fully audited local sitemap documents, not
+  declarations inferred from missing or unsupported evidence;
 - traversed document and sitemap-reference counts;
 - total and unique page URL counts;
 - duplicate URL counts with URL/document ordinals;
@@ -118,6 +121,18 @@ The report includes:
 - `cohort.count` and `cohort.digest`, plus `cohort.urls` with `--with-cohort`; and
 - optionally, added and removed counts with current/baseline URL ordinals and
   the evidence they rest on.
+
+`findings` use fixed source labels (`current`, `baseline`, `policy`) and
+array-position pointers, sorted by UTF-16 code units. They never include
+arbitrary URL, filename or policy values. The following emitted rules have
+stable severity:
+
+| Finding rule | Severity | Evidence |
+| --- | --- | --- |
+| `duplicate-url`, `url-fragment`, `invalid-url`, `lastmod-invalid`, `loc-missing` | warning | A known sitemap quality observation |
+| `cohort-movement-unknown`, `policy-evidence-incomplete` | warning | Comparison or configured policy lacks sufficient evidence; overall status incomplete |
+| `policy-*` | error | A configured policy rule definitely failed |
+| `input-unreadable`, `input-invalid` | warning | An input document could not be evaluated; overall status incomplete |
 
 Accepted `<lastmod>` formats are `YYYY-MM-DD` and a complete ISO/W3C-style timestamp with seconds and a `Z` or numeric timezone, such as `2026-08-10T12:30:00+05:30`.
 

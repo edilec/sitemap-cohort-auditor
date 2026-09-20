@@ -15,7 +15,10 @@
     "invalidLastmodValues": 0,
     "fragmentUrls": 0,
     "invalidUrls": 0,
-    "missingLocs": 0
+    "missingLocs": 0,
+    "checked": 3,
+    "errors": 0,
+    "warnings": 0
   },
   "hosts": [
     {
@@ -77,6 +80,8 @@
       }
     ]
   },
+  "tool": "sitemap-cohort-auditor",
+  "findings": [],
   "policy": {
     "schemaVersion": 1,
     "status": "pass",

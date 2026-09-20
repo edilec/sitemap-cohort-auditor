@@ -39,6 +39,9 @@ test('recursively audits sitemap indexes and reports quality signals', async () 
   const report = await auditSitemap(root);
 
   assert.deepEqual(report.summary, {
+    checked: 4,
+    errors: 0,
+    warnings: 7,
     documents: 4,
     sitemapReferences: 3,
     urlEntries: 6,
