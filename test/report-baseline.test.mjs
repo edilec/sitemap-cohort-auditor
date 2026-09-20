@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 
-import { auditSitemap, cohortDigest } from '../lib/audit.mjs';
+import { auditSitemap, cohortDigest, formatTextReport } from '../lib/audit.mjs';
 import { evaluatePolicy } from '../lib/policy.mjs';
 
 function urlset(urls) {
@@ -113,6 +113,22 @@ test('a digest-only baseline reports unknown movement instead of zero', async ()
     assert.equal(report.comparison.removedCount, undefined);
     assert.equal(report.comparison.added, undefined);
     assert.match(report.comparison.note, /added and removed URLs are unknown/);
+  });
+});
+
+test('human report renders digest-only movement as unknown without crashing', async () => {
+  await withTempDir(async (directory) => {
+    const before = await write(directory, 'before.xml', urlset(BEFORE));
+    const baseline = await auditSitemap(before);
+    const baselinePath = await write(directory, 'baseline.json', JSON.stringify(baseline));
+    const after = await write(directory, 'after.xml', urlset(AFTER));
+    const report = await auditSitemap(after, { compare: baselinePath });
+
+    assert.equal(report.comparison.evidence, 'digest-only');
+    assert.equal(report.comparison.added, undefined);
+    assert.match(formatTextReport(report), /Added: unknown/);
+    assert.match(formatTextReport(report), /Removed: unknown/);
+    assert.doesNotMatch(formatTextReport(report), /Added: 0\b|Removed: 0\b/);
   });
 });
 
