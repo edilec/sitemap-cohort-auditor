@@ -163,7 +163,7 @@ async function main() {
   try {
     const report = await auditSitemap(options.source, {
       ...(options.root === null ? {} : { root: options.root }),
-      compare: options.compare,
+      ...(options.compare === null ? {} : { compare: options.compare }),
       withCohort: options.withCohort,
       ...(options.timeoutMs === null ? {} : { timeoutMs: options.timeoutMs }),
     });

@@ -19,6 +19,13 @@ schema version `1`.
 The utility uses only Node built-ins and never makes a network request. It
 does not send results to a service or require an API key.
 
+The `auditSitemap(path, options)` library entry point accepts only own data
+properties named `root`, `compare`, `withCohort`, `maxXmlBytes`, `timeoutMs`,
+and `now`. `root` and `compare` require non-empty path strings;
+`withCohort` requires an explicit boolean. Unknown or mistyped options are
+configuration errors before input is read. In particular, a string such as
+`"false"` never enables the sensitive `cohort.urls` export.
+
 ## Install and run locally
 
 ```sh
