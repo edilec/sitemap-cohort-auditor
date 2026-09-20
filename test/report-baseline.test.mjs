@@ -40,6 +40,27 @@ test('the cohort digest is stable and order-independent', () => {
   assert.notEqual(digest, cohortDigest(['https://example.com/a']));
 });
 
+test('cohort digest frames newline-containing URLs instead of aliasing two entries', async () => {
+  assert.notEqual(cohortDigest(['https://example.test/a\nhttps://example.test/b']),
+    cohortDigest(['https://example.test/a', 'https://example.test/b']));
+
+  await withTempDir(async (directory) => {
+    const one = await write(directory, 'one.xml', urlset([
+      'https://example.test/a&#10;https://example.test/b',
+    ]));
+    const two = await write(directory, 'two.xml', urlset([
+      'https://example.test/a',
+      'https://example.test/b',
+    ]));
+    const same = await auditSitemap(two, { compare: two });
+    const changed = await auditSitemap(two, { compare: one });
+    assert.equal(same.comparison.cohortChanged, false);
+    assert.equal(changed.comparison.cohortChanged, true);
+    assert.equal(changed.comparison.addedCount, 2);
+    assert.equal(changed.comparison.removedCount, 1);
+  });
+});
+
 test('every report carries a cohort count and digest, and the URL list only on request', async () => {
   await withTempDir(async (directory) => {
     const sitemap = await write(directory, 'sitemap.xml', urlset(BEFORE));

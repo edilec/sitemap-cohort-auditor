@@ -50,13 +50,14 @@
   "skippedAlreadyVisited": [],
   "cohort": {
     "count": 5,
-    "digest": "sha256:c6129ba6a41361d59729e9e3fd789249fa94ff720a0d154a9fec9a968ff287bd"
+    "digestAlgorithm": "sha256-framed-utf16le-v2",
+    "digest": "sha256:ee6ae44f7161df908e74ac188ff3d35ac58b940e6eb146f8bea2c09a5fef5179"
   },
   "comparison": {
     "source": "./examples/release/before.xml",
     "baselineKind": "sitemap-or-report",
     "previousUniqueUrls": 4,
-    "previousCohortDigest": "sha256:3dc8b072a01d79ff5791d9b5b18c05188ebc8dc82137f8ac242cf42f233b209a",
+    "previousCohortDigest": "sha256:1aa6d8c10c67dbcd25c5b1a17cb571be198b0193b1d8c3e91b486adf58b08066",
     "evidence": "urls",
     "cohortChanged": true,
     "addedCount": 2,
