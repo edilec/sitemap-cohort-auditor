@@ -215,6 +215,10 @@ Unknown properties, duplicate allowed values, unsupported schemes, negative
 limits, and unrecognized schema versions are rejected. Rules use inclusive
 boundaries: a count exactly equal to its minimum or maximum passes. With
 `--json`, the deterministic `policy` object is included in the normal report.
+The exported `evaluatePolicy` API evaluates a count only when the observed
+metric is a nonnegative safe integer. Missing, fractional, negative or
+non-finite evidence makes that configured rule incomplete, while independent
+known violations remain visible; it never turns an unknown count into a pass.
 
 Host and scheme allowlists inspect valid HTTP(S) page URLs. If a malformed or
 unsupported URL was dropped from that index, those allowlist conclusions are

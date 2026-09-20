@@ -174,6 +174,63 @@ test('treats exact thresholds as passing boundaries on complete evidence', () =>
   });
 });
 
+test('a configured threshold with missing or invalid observed count is incomplete', () => {
+  const rules = [
+    ['minUniqueUrls', 'uniqueUrls'],
+    ['minUniqueImages', 'uniqueImages'],
+    ['maxDuplicateUrls', 'duplicateUrls'],
+    ['maxDuplicateUrlEntries', 'duplicateUrlEntries'],
+    ['maxInvalidLastmodValues', 'invalidLastmodValues'],
+    ['maxFragmentUrls', 'fragmentUrls'],
+    ['maxInvalidUrls', 'invalidUrls'],
+    ['maxMissingLocs', 'missingLocs'],
+  ];
+  for (const [rule, metric] of rules) {
+    for (const value of [undefined, null, Number.NaN, -1, 0.5, Number.POSITIVE_INFINITY,
+      Number.MAX_SAFE_INTEGER + 1]) {
+      const result = evaluatePolicy({ summary: { [metric]: value } }, {
+        schemaVersion: 1, [rule]: 1,
+      });
+      assert.equal(result.status, 'incomplete', `${rule}: ${String(value)}`);
+      assert.equal(result.passed, null);
+      assert.deepEqual(result.incompleteRules, [rule]);
+      assert.deepEqual(result.findings, []);
+    }
+  }
+  const knownAndUnknown = evaluatePolicy({ summary: { duplicateUrls: 1 } }, {
+    schemaVersion: 1, minUniqueUrls: 1, maxDuplicateUrls: 0,
+  });
+  assert.equal(knownAndUnknown.status, 'incomplete');
+  assert.deepEqual(knownAndUnknown.incompleteRules, ['minUniqueUrls']);
+  assert.deepEqual(knownAndUnknown.findings, [
+    { code: 'MAX_DUPLICATE_URLS', actual: 1, maximum: 0 },
+  ]);
+  const exact = evaluatePolicy({ summary: { uniqueUrls: 1 } }, {
+    schemaVersion: 1, minUniqueUrls: 1,
+  });
+  assert.equal(exact.status, 'pass');
+  assert.deepEqual(exact.incompleteRules, []);
+});
+
+test('maxRemovedUrls cannot use an unsafe or missing comparison count', () => {
+  const policy = { schemaVersion: 1, maxRemovedUrls: 0 };
+  for (const value of [undefined, null, Number.NaN, -1, 0.5,
+    Number.POSITIVE_INFINITY, Number.MAX_SAFE_INTEGER + 1]) {
+    const result = evaluatePolicy({ summary: {}, comparison: { removedCount: value } }, policy);
+    assert.equal(result.status, 'incomplete', String(value));
+    assert.equal(result.passed, null);
+    assert.deepEqual(result.incompleteRules, ['maxRemovedUrls']);
+    assert.deepEqual(result.findings, []);
+  }
+  const exact = evaluatePolicy({ summary: {}, comparison: { removedCount: 0 } }, policy);
+  assert.equal(exact.status, 'pass');
+  const exceeded = evaluatePolicy({ summary: {}, comparison: { removedCount: 1 } }, policy);
+  assert.equal(exceeded.status, 'fail');
+  assert.deepEqual(exceeded.findings, [
+    { code: 'MAX_REMOVED_URLS', actual: 1, maximum: 0 },
+  ]);
+});
+
 test('an invalid URL cannot satisfy a host allowlist built from a partial index', async (t) => {
   const directory = await mkdtemp(join(tmpdir(), 'sitemap-partial-host-'));
   t.after(() => rm(directory, { recursive: true, force: true }));
