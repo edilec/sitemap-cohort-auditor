@@ -139,6 +139,11 @@ test('a digest-only baseline reports unknown movement instead of zero', async ()
     assert.equal(report.comparison.removedCount, undefined);
     assert.equal(report.comparison.added, undefined);
     assert.match(report.comparison.note, /added and removed URLs are unknown/);
+    assert.equal(report.status, 'incomplete');
+    const cliResult = spawnSync(process.execPath,
+      [cli, after, '--compare', baselinePath, '--json'], { encoding: 'utf8' });
+    assert.equal(cliResult.status, 2);
+    assert.equal(JSON.parse(cliResult.stdout).summary.uniqueUrls, 3);
   });
 });
 
@@ -158,7 +163,7 @@ test('human report renders digest-only movement as unknown without crashing', as
   });
 });
 
-test('maxRemovedUrls fails closed when the baseline recorded only a digest', async () => {
+test('maxRemovedUrls stays unevaluated on digest-only evidence without discarding the audit', async () => {
   await withTempDir(async (directory) => {
     const before = await write(directory, 'before.xml', urlset(BEFORE));
     const baseline = await auditSitemap(before);
@@ -167,10 +172,20 @@ test('maxRemovedUrls fails closed when the baseline recorded only a digest', asy
     const after = await write(directory, 'after.xml', urlset(AFTER));
     const report = await auditSitemap(after, { compare: baselinePath });
 
-    assert.throws(
-      () => evaluatePolicy(report, { schemaVersion: 1, maxRemovedUrls: 0 }),
-      /known removed-URL count/,
-    );
+    const result = evaluatePolicy(report, { schemaVersion: 1, maxRemovedUrls: 0 });
+    assert.equal(result.status, 'incomplete');
+    assert.deepEqual(result.incompleteRules, ['maxRemovedUrls']);
+    const policyPath = await write(directory, 'policy.json', JSON.stringify({
+      schemaVersion: 1,
+      maxRemovedUrls: 0,
+    }));
+    const cliResult = spawnSync(process.execPath,
+      [cli, after, '--compare', baselinePath, '--policy', policyPath, '--json'], { encoding: 'utf8' });
+    assert.equal(cliResult.status, 2);
+    const cliReport = JSON.parse(cliResult.stdout);
+    assert.equal(cliReport.status, 'incomplete');
+    assert.equal(cliReport.summary.uniqueUrls, 3);
+    assert.deepEqual(cliReport.policy.incompleteRules, ['maxRemovedUrls']);
   });
 });
 

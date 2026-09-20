@@ -85,7 +85,7 @@ movement:
 | Baseline | `comparison.evidence` | What you get |
 | --- | --- | --- |
 | sitemap, or report with `--with-cohort` | `urls` | exact internal comparison; added and removed counts with safe ordinals |
-| report without `--with-cohort` | `digest-only` | `cohortChanged` only; added and removed are **unknown**, not zero |
+| report without `--with-cohort` | `digest-only` | `cohortChanged` only; added and removed are **unknown**, so the run is incomplete (exit `2`) |
 | legacy version 1 report with its full unique URL list | `urls` | validated against its legacy digest, then compared with version 2 framing |
 | legacy version 1 digest-only report | `legacy-digest-only` | incomplete: the old unframed digest cannot prove version 2 cohort equality |
 
