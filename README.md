@@ -8,7 +8,7 @@
 A dependency-free Node.js command-line utility for checking sitemap cohorts before and after a site release. It follows nested sitemap indexes, counts page and image entries, and highlights changes or metadata problems that are easy to miss in very large sitemaps.
 
 **Status:** maintained. The supported runtime is Node.js 20 or newer; CI covers
-Node.js 20, 22, and 24. Reports use schema version `1`; release-policy files use
+Node.js 20, 22, and 24. Reports use schema version `2`; release-policy files use
 schema version `1`.
 
 ## Requirements
@@ -74,8 +74,10 @@ sitemap-cohort-auditor ./sitemap.xml --json --with-cohort > release-42.json
 sitemap-cohort-auditor ./sitemap.xml --compare ./release-42.json --json
 ```
 
-Every report always records `cohort.count` and `cohort.digest`, a SHA-256
-fingerprint of the sorted unique URLs. If the baseline report has the digest
+Every report always records `cohort.count`, `cohort.digestAlgorithm`, and
+`cohort.digest`. Version 2 fingerprints the sorted unique URLs with a
+length-framed UTF-16LE SHA-256 input, so an embedded newline cannot make one
+URL hash like two entries. If the baseline report has the digest
 but not the URL list, the comparison says so rather than reporting zero
 movement:
 
@@ -83,12 +85,15 @@ movement:
 | --- | --- | --- |
 | sitemap, or report with `--with-cohort` | `urls` | exact added and removed lists |
 | report without `--with-cohort` | `digest-only` | `cohortChanged` only; added and removed are **unknown**, not zero |
+| legacy version 1 report with its full unique URL list | `urls` | validated against its legacy digest, then compared with version 2 framing |
+| legacy version 1 digest-only report | `legacy-digest-only` | incomplete: the old unframed digest cannot prove version 2 cohort equality |
 
 A `maxRemovedUrls` policy rule against a digest-only baseline is a configuration
 error, not a pass. Unknown evidence never satisfies a threshold.
 
-A report whose `cohort.urls` does not match its own `cohort.digest` is
-rejected, so an edited artifact cannot quietly redefine the baseline.
+A report whose count, sorted unique URL list, digest shape or algorithm is
+inconsistent is rejected, as is JSON with duplicate keys. An edited artifact
+cannot quietly redefine the baseline.
 
 ## Machine-readable output
 

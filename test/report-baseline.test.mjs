@@ -1,11 +1,16 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
+import { spawnSync } from 'node:child_process';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
 
 import { auditSitemap, cohortDigest, formatTextReport } from '../lib/audit.mjs';
 import { evaluatePolicy } from '../lib/policy.mjs';
+
+const cli = resolve(dirname(fileURLToPath(import.meta.url)), '../bin/sitemap-cohort-auditor.mjs');
 
 function urlset(urls) {
   return `<?xml version="1.0" encoding="UTF-8"?>
@@ -196,8 +201,83 @@ test('a tampered cohort list is rejected rather than trusted', async () => {
     const after = await write(directory, 'after.xml', urlset(AFTER));
     await assert.rejects(
       auditSitemap(after, { compare: baselinePath }),
-      /do not match its recorded digest/,
+      /Comparison report/,
     );
+  });
+});
+
+test('duplicate JSON keys cannot replace earlier baseline evidence', async () => {
+  await withTempDir(async (directory) => {
+    const current = await write(directory, 'current.xml', urlset(AFTER));
+    const baseline = await auditSitemap(current, { withCohort: true });
+    const json = JSON.stringify(baseline).replace(
+      '"cohort":{"count":3', '"cohort":{"count":999,"count":3',
+    );
+    const path = await write(directory, 'ambiguous.json', json);
+    await assert.rejects(auditSitemap(current, { compare: path }), /duplicate JSON key/);
+  });
+});
+
+test('a comparison report cannot claim a count or digest contradicted by its cohort', async () => {
+  await withTempDir(async (directory) => {
+    const current = await write(directory, 'current.xml', urlset(AFTER));
+    const baseline = await auditSitemap(current, { withCohort: true });
+    const wrongCount = await write(directory, 'wrong-count.json', JSON.stringify({
+      ...baseline,
+      cohort: { ...baseline.cohort, count: 999 },
+    }));
+    const wrongDigest = await write(directory, 'wrong-digest.json', JSON.stringify({
+      ...baseline,
+      cohort: { ...baseline.cohort, digest: 'not-a-digest' },
+    }));
+    const duplicate = await write(directory, 'duplicate.json', JSON.stringify({
+      ...baseline,
+      cohort: { ...baseline.cohort, count: 4, urls: [...baseline.cohort.urls, AFTER[0]] },
+    }));
+    for (const path of [wrongCount, wrongDigest, duplicate]) {
+      await assert.rejects(auditSitemap(current, { compare: path }), /comparison report/i);
+    }
+  });
+});
+
+test('a validated legacy full-list baseline converts to framed comparison evidence', async () => {
+  await withTempDir(async (directory) => {
+    const current = await write(directory, 'current.xml', urlset(AFTER));
+    const legacyDigest = createHash('sha256');
+    for (const url of BEFORE) legacyDigest.update(url).update('\n');
+    const baselinePath = await write(directory, 'legacy.json', JSON.stringify({
+      schemaVersion: 1,
+      cohort: {
+        count: BEFORE.length,
+        digest: `sha256:${legacyDigest.digest('hex')}`,
+        urls: BEFORE,
+      },
+    }));
+    const report = await auditSitemap(current, { compare: baselinePath });
+    assert.equal(report.comparison.evidence, 'urls');
+    assert.equal(report.comparison.cohortChanged, true);
+    assert.deepEqual(report.comparison.removed, ['https://example.com/legacy']);
+  });
+});
+
+test('a legacy digest-only baseline stays incomplete instead of comparing digest versions', async () => {
+  await withTempDir(async (directory) => {
+    const current = await write(directory, 'current.xml', urlset(AFTER));
+    const legacyDigest = createHash('sha256');
+    for (const url of BEFORE) legacyDigest.update(url).update('\n');
+    const baselinePath = await write(directory, 'legacy.json', JSON.stringify({
+      schemaVersion: 1,
+      cohort: { count: BEFORE.length, digest: `sha256:${legacyDigest.digest('hex')}` },
+    }));
+    const report = await auditSitemap(current, { compare: baselinePath });
+    assert.equal(report.comparison.evidence, 'legacy-digest-only');
+    assert.equal(report.comparison.cohortChanged, null);
+    assert.equal(report.comparison.status, 'incomplete');
+    assert.equal(report.status, 'incomplete');
+    const cliResult = spawnSync(process.execPath,
+      [cli, current, '--compare', baselinePath, '--json'], { encoding: 'utf8' });
+    assert.equal(cliResult.status, 2);
+    assert.equal(JSON.parse(cliResult.stdout).status, 'incomplete');
   });
 });
 
@@ -215,7 +295,7 @@ test('a malformed cohort section is rejected', async () => {
       schemaVersion: 1,
       cohort: { count: 1, digest: 'sha256:x', urls: [7] },
     }));
-    await assert.rejects(auditSitemap(after, { compare: badUrls }), /malformed cohort URL list/);
+    await assert.rejects(auditSitemap(after, { compare: badUrls }), /malformed cohort/);
   });
 });
 

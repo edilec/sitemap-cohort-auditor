@@ -1,5 +1,6 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
+  "status": "pass",
   "source": "./examples/release/after/index.xml",
   "summary": {
     "documents": 3,

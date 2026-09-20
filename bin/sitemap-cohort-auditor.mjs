@@ -129,13 +129,15 @@ async function main() {
         ...result,
         source: loadedPolicy.path,
       };
+      if (result.status === 'incomplete' || report.status === 'incomplete') report.status = 'incomplete';
+      else if (result.status === 'fail') report.status = 'fail';
     }
     const output = options.json
       ? formatJsonReport(report)
       : formatTextReport(report);
     process.stdout.write(output);
-    if (report.policy?.status === 'incomplete') process.exitCode = 2;
-    else if (report.policy?.status === 'fail') process.exitCode = 1;
+    if (report.status === 'incomplete') process.exitCode = 2;
+    else if (report.status === 'fail') process.exitCode = 1;
   } catch (error) {
     console.error(`Audit failed: ${escapeTerminalText(error.message)}`);
     process.exitCode = 1;
