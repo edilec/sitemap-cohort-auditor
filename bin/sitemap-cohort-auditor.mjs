@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+import { realpath, stat } from 'node:fs/promises';
+
 import {
   auditSitemap,
   escapeTerminalText,
@@ -13,12 +15,14 @@ import { evaluatePolicy, loadPolicyFile } from '../lib/policy.mjs';
 const HELP = `sitemap-cohort-auditor ${VERSION}
 
 Usage:
-  sitemap-cohort-auditor <SITEMAP> [--compare <BASELINE>] [--policy <POLICY_JSON>] [--json]
+  sitemap-cohort-auditor <SITEMAP> [--root <DIRECTORY>] [--compare <BASELINE>] [--policy <POLICY_JSON>] [--json]
 
 Arguments:
-  SITEMAP              Local sitemap XML/.gz file or HTTPS URL
+  SITEMAP              Local sitemap XML/.gz export
 
 Options:
+  --root <DIRECTORY>   Explicit local root for the current/child/baseline files;
+                       default is the current sitemap's parent directory
   --compare <SOURCE>   Compare the current unique URL cohort with an older
                        sitemap or with an earlier --json report from this tool
   --with-cohort        Include the unique URL list in the JSON report so a
@@ -32,6 +36,7 @@ Options:
 function parseArguments(argv) {
   const options = {
     source: null,
+    root: null,
     compare: null,
     policy: null,
     json: false,
@@ -47,10 +52,15 @@ function parseArguments(argv) {
       options.json = true;
     } else if (argument === '--with-cohort') {
       options.withCohort = true;
+    } else if (argument === '--root') {
+      const value = argv[index + 1];
+      if (!value || value.startsWith('-')) throw new Error('--root requires a local directory');
+      options.root = value;
+      index += 1;
     } else if (argument === '--compare') {
       const value = argv[index + 1];
       if (!value || value.startsWith('-')) {
-        throw new Error('--compare requires a local sitemap path or HTTPS URL');
+        throw new Error('--compare requires a local sitemap or report path');
       }
       options.compare = value;
       index += 1;
@@ -109,6 +119,18 @@ async function main() {
     process.exitCode = 2;
     return;
   }
+  if (options.root !== null) {
+    try {
+      if (/^[A-Za-z][A-Za-z0-9+.-]*:/.test(options.root)
+        || !(await stat(await realpath(options.root))).isDirectory()) {
+        throw new Error('invalid root');
+      }
+    } catch {
+      console.error('Error: --root must name an existing local directory');
+      process.exitCode = 2;
+      return;
+    }
+  }
 
   let loadedPolicy = null;
   if (options.policy) {
@@ -128,6 +150,7 @@ async function main() {
 
   try {
     const report = await auditSitemap(options.source, {
+      ...(options.root === null ? {} : { root: options.root }),
       compare: options.compare,
       withCohort: options.withCohort,
     });

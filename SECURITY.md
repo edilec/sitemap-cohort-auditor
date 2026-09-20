@@ -23,7 +23,10 @@ usually enough to reproduce parser and traversal behavior.
 
 ## Scope notes
 
-The utility reads local files and retrieves user-supplied HTTPS sitemap URLs. An optional policy gate reads a local JSON file. Treat sitemap and policy files as untrusted input, run the CLI with the least filesystem access it needs, and review URLs before using them in another automated workflow.
+The utility reads local sitemap exports and an optional local JSON policy; it
+never retrieves URLs. Treat exported files as untrusted input, run the CLI with
+the least filesystem access it needs, and review URLs before using them in
+another automated workflow.
 
 The trust boundaries and deliberate restrictions are described in
 [Architecture and data flow](./docs/architecture.md). Known non-goals are

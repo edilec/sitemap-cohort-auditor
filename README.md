@@ -14,9 +14,10 @@ schema version `1`.
 ## Requirements
 
 - Node.js 20 or newer
-- A local sitemap XML/XML.GZ file or an HTTPS sitemap URL
+- A local sitemap XML/XML.GZ export
 
-The utility uses only Node built-ins. It does not send results to a service or require an API key.
+The utility uses only Node built-ins and never makes a network request. It
+does not send results to a service or require an API key.
 
 ## Install and run locally
 
@@ -32,27 +33,18 @@ After installing the package globally or linking it with `npm link`, use the sho
 sitemap-cohort-auditor ./sitemap.xml
 ```
 
-To install the recommended release directly from its checksummed package:
-
-```sh
-npm install --global https://github.com/edilec/sitemap-cohort-auditor/releases/download/v0.2.2/sitemap-cohort-auditor-0.2.2.tgz
-sitemap-cohort-auditor ./sitemap.xml
-```
-
-Release artifacts and checksums are available on the [latest release page](https://github.com/edilec/sitemap-cohort-auditor/releases/latest).
-
-Remote input must use HTTPS:
-
-```sh
-sitemap-cohort-auditor https://example.com/sitemap.xml
-```
+Export a sitemap to a local file before auditing. URL inputs and network
+fetch callbacks are not supported. The default read root is the real parent
+directory of the initial sitemap. Use `--root DIRECTORY` only when an exported
+index, comparison sitemap or baseline report legitimately spans sibling
+directories. The initial file and every child must resolve inside that root.
 
 ## Compare two URL cohorts
 
 Use the current sitemap as the main argument and the older sitemap after `--compare`:
 
 ```sh
-sitemap-cohort-auditor ./after/sitemap.xml --compare ./before/sitemap.xml
+sitemap-cohort-auditor ./after/sitemap.xml --root . --compare ./before/sitemap.xml
 ```
 
 The comparison uses exact, decoded `<loc>` strings from unique URL entries. It reports URLs added to the current cohort and URLs removed from it. Invalid URL strings are retained in this comparison so a malformed entry cannot silently disappear from review.
@@ -128,6 +120,7 @@ from the repository root:
 ```sh
 node ./bin/sitemap-cohort-auditor.mjs \
   ./examples/release/after/index.xml \
+  --root ./examples/release \
   --compare ./examples/release/before.xml \
   --policy ./examples/release/policy.json \
   --json
@@ -143,7 +136,7 @@ CLI output.
 Add `--policy` to turn selected sitemap findings into an explicit CI gate:
 
 ```sh
-sitemap-cohort-auditor ./after/sitemap.xml \
+sitemap-cohort-auditor ./after/sitemap.xml --root . \
   --compare ./before/sitemap.xml \
   --policy ./sitemap-policy.json
 ```
@@ -204,21 +197,21 @@ terminal does not remove it, because a credential is printable.
 
 ## Safety limits
 
-- HTTP input is rejected. Remote child sitemaps and redirects must stay on the starting URL's HTTPS origin.
-- Local sitemap indexes may reference only local child files; they cannot initiate remote requests.
-- Remote redirects are followed manually, with at most five redirects across a request.
-- Remote request chains time out after 30 seconds.
-- Each sitemap transfer and each uncompressed XML document is streamed with a 50 MiB limit.
+- All sitemap and comparison inputs are local exports. Remote roots, children,
+  fetch callbacks and redirect options are unsupported; no network is opened.
+- The initial file, local children and comparison input must resolve inside
+  the real read root. Out-of-root symlinks make the run incomplete.
+- Each local sitemap file and each uncompressed XML document is streamed with a 50 MiB limit.
 - Policy input must be a local UTF-8 JSON file and is streamed with a 64 KiB limit.
 - A sitemap graph is limited to 10,000 distinct documents.
-- Gzip content is detected from its bytes, so local and remote `.gz` files are supported even when their names are unconventional.
+- Gzip content is detected from its bytes, so local `.gz` files work even when their names are unconventional.
 - Human-readable output escapes terminal control and bidirectional formatting characters.
 
 ## Architecture
 
 The utility separates source loading and traversal, report finalization,
-comparison, policy evaluation, and presentation. Remote fetches cross a strict
-same-origin HTTPS boundary; local indexes cannot initiate network access. See
+comparison, policy evaluation, and presentation. The source loader has no
+network branch and confines local reads to the declared root. See
 [Architecture and data flow](./docs/architecture.md) for the component map,
 trust boundaries, resource limits, and security-sensitive change areas.
 
@@ -229,13 +222,14 @@ This is a focused sitemap checker, not a general XML validator or crawler.
 - It reads standard sitemap `<url>`, `<sitemap>`, `<loc>`, `<lastmod>`, and `image:loc` elements with a small, dependency-free extractor. It does not validate arbitrary XML schemas, signatures, or DTDs.
 - Image counting expects the conventional `image:loc` prefix.
 - It audits sitemap declarations; it does not request every listed page, verify canonical tags, assess page quality, or estimate search rankings.
-- Counts describe the sitemap at audit time. A changing remote sitemap can produce different results on later runs.
+- Counts describe the exported sitemap at audit time, not a live site.
 - A successful audit does not guarantee indexing. Search engines make their own crawling and indexing decisions.
 - The byte limit is per document. Very large sitemap graphs can still require substantial aggregate work, so do not expose this CLI as an unauthenticated hosted service.
-- Local child paths can traverse directories or resolve through symlinks. Review untrusted local sitemap indexes before running them in a privileged environment.
+- An out-of-root child path or symlink is refused as incomplete; the tool does
+  not prove that an exported sitemap was a complete snapshot of a live site.
 
 The expanded [limitations and non-goals](./docs/limitations-and-non-goals.md)
-document explains the XML, URL-comparison, remote-origin, resource, and policy
+document explains the XML, URL-comparison, local-root, resource, and policy
 boundaries in detail.
 
 ## Exit codes

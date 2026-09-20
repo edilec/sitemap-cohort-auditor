@@ -9,6 +9,7 @@ From the repository root, run:
 ```sh
 node ./bin/sitemap-cohort-auditor.mjs \
   ./examples/release/after/index.xml \
+  --root ./examples/release \
   --compare ./examples/release/before.xml \
   --policy ./examples/release/policy.json \
   --json

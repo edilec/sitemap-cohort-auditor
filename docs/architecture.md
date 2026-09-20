@@ -17,10 +17,9 @@ boundaries over broad crawling behavior.
 ```mermaid
 flowchart LR
     A[CLI arguments] --> B{Source kind}
-    B -->|Local path or file URL| C[Bounded file stream]
-    B -->|HTTPS URL| D[Manual same-origin fetch and redirects]
-    C --> E[Magic-byte gzip detection]
-    D --> E
+    B -->|Local path or file URL| C[Realpath and root confinement]
+    C --> D[Bounded file stream]
+    D --> E[Magic-byte gzip detection]
     E --> F[Bounded UTF-8 document]
     F --> G[Root and element extraction]
     G -->|sitemapindex| H[Resolve and visit child]
@@ -47,23 +46,20 @@ serialization so the same stable inputs produce the same output.
 ### Local files
 
 Local sitemap indexes may reference only local children. Relative paths are
-resolved from the parent document, and `file:` children are supported. Local
-paths may traverse directories or follow symlinks, so untrusted indexes should
-run with the least filesystem access available.
+resolved from the parent document, and `file:` children are supported. The
+initial path, each child and the comparison input must resolve within the real
+read root. The default root is the initial sitemap's real parent; `--root`
+explicitly widens it for a local export spanning sibling directories.
 
-### Remote input
+### Network boundary
 
-Remote roots must use credential-free HTTPS URLs. Every child and redirect must
-remain on the root's exact origin and use HTTPS. Redirects are handled manually
-to validate the next target before a request is sent. HTTP input, cross-origin
-children, embedded credentials, automatic redirects, and non-identity content
-encoding are rejected.
+There is no fetch path, redirect handler or network callback. URL source
+arguments are invalid configuration; a remote child declaration makes the
+local export incomplete without opening a connection.
 
 ### Resource bounds
 
-- Each transfer and each uncompressed XML document is limited to 50 MiB.
-- Redirects are limited to five per request chain.
-- Remote request chains time out after 30 seconds.
+- Each local file and each uncompressed XML document is limited to 50 MiB.
 - A sitemap graph is limited to 10,000 distinct documents.
 - Local policy input is limited to 64 KiB.
 
@@ -88,10 +84,10 @@ trailing slashes, case, query ordering, host aliases, or default documents.
 Malformed entries remain visible in the cohort instead of silently dropping
 out.
 
-Policy evaluation happens after a successful audit. A failing policy still
-emits the complete report and exits with code `3`; loading or parsing failures
-use different exit codes. Policies are local, versioned JSON and cannot trigger
-network access.
+Policy evaluation happens after a successful audit. A definite policy failure
+emits the report and exits `1`; incomplete evidence exits `2`. Invalid policy
+configuration leaves stdout empty. Policies are local, versioned JSON and
+cannot trigger network access.
 
 A policy file that does not parse is reported by position, line, and column
 only. `JSON.parse` has two error messages and one of them embeds the input —
@@ -103,6 +99,6 @@ printable; `parseFailureDetail` drops the quotation and keeps the position.
 
 ## Security-sensitive changes
 
-Changes to source normalization, redirects, streaming bounds, decompression,
+Changes to source normalization, read confinement, streaming bounds, decompression,
 terminal escaping, policy parsing, or output ordering require focused tests and
 maintainer review. See [SECURITY.md](../SECURITY.md) for private reporting.

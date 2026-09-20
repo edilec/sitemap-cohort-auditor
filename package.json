@@ -17,11 +17,13 @@
   },
   "scripts": {
     "audit": "node ./bin/sitemap-cohort-auditor.mjs",
+    "lint": "node --check lib/audit.mjs && node --check lib/policy.mjs && node --check bin/sitemap-cohort-auditor.mjs && node --check scripts/check-links.mjs",
     "docs:check": "node ./scripts/check-links.mjs",
     "package:check": "npm pack --dry-run",
     "test": "node --test",
     "test:coverage": "node --test --experimental-test-coverage",
-    "verify": "npm test && npm run docs:check && npm run package:check"
+    "verify": "npm test && npm run docs:check && npm run package:check",
+    "check": "npm run lint && npm run verify"
   },
   "engines": {
     "node": ">=20"

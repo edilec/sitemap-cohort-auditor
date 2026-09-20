@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
@@ -32,73 +32,6 @@ function urlset(urls = []) {
   return `<urlset>${urls.map((url) => `<url><loc>${url}</loc></url>`).join('')}</urlset>`;
 }
 
-function xmlResponse(body, options = {}) {
-  const headers = new Headers(options.headers);
-  headers.set('content-type', 'application/xml');
-  return new Response(body, { ...options, headers });
-}
-
-function redirectResponse(status, location) {
-  const headers = location === undefined ? undefined : { location };
-  return new Response(null, { status, headers });
-}
-
-function fetchRouter(routes) {
-  const calls = [];
-  const fetch = async (input, options = {}) => {
-    const url = String(input);
-    calls.push({ url, options });
-    const factory = routes[url];
-    if (!factory) throw new Error(`Unexpected fetch: ${url}`);
-    return factory();
-  };
-  return { calls, fetch };
-}
-
-function trackedBody(chunks) {
-  let index = 0;
-  let pulls = 0;
-  let cancelled = false;
-  const iterator = {
-    async next() {
-      pulls += 1;
-      if (index >= chunks.length) return { done: true, value: undefined };
-      const value = chunks[index];
-      index += 1;
-      return { done: false, value };
-    },
-    async return() {
-      cancelled = true;
-      return { done: true, value: undefined };
-    },
-  };
-  return {
-    body: {
-      [Symbol.asyncIterator]() {
-        return iterator;
-      },
-      async cancel() {
-        cancelled = true;
-      },
-    },
-    get cancelled() {
-      return cancelled;
-    },
-    get pulls() {
-      return pulls;
-    },
-  };
-}
-
-function responseLike(body, { status = 200, headers = {} } = {}) {
-  return {
-    body,
-    headers: new Headers(headers),
-    ok: status >= 200 && status < 300,
-    status,
-    url: '',
-  };
-}
 
 const unsafeTerminalPattern = /[\u0000-\u0009\u000B-\u001F\u007F-\u009F\p{Cf}\p{Cs}\p{Zl}\p{Zp}]/u;
 
@@ -237,76 +170,6 @@ test('accepts W3C-style lastmod values and rejects invalid calendar values', () 
   assert.equal(isIsoLastmod('2026-08-10T12:30:00+14:30'), false);
 });
 
-test('remote graphs accept only normalized same-origin HTTPS children', async () => {
-  const rootUrl = 'https://origin.test/maps/root.xml';
-  const { calls, fetch } = fetchRouter({
-    [rootUrl]: () => xmlResponse(sitemapIndex([
-      'child.xml',
-      '/absolute.xml',
-      'https://ORIGIN.test:443/third.xml#ignored',
-    ])),
-    'https://origin.test/maps/child.xml': () => xmlResponse(urlset([
-      'https://example.test/relative',
-    ])),
-    'https://origin.test/absolute.xml': () => xmlResponse(urlset([
-      'https://example.test/absolute',
-    ])),
-    'https://origin.test/third.xml': () => xmlResponse(urlset([
-      'https://example.test/third',
-    ])),
-  });
-
-  const report = await auditSitemap(rootUrl, { fetch });
-
-  assert.equal(report.summary.documents, 4);
-  assert.deepEqual(calls.map(({ url }) => url), [
-    rootUrl,
-    'https://origin.test/maps/child.xml',
-    'https://origin.test/absolute.xml',
-    'https://origin.test/third.xml',
-  ]);
-  assert.ok(calls.every(({ options }) => options.redirect === 'manual'));
-  assert.ok(calls.every(({ options }) => options.headers['accept-encoding'] === 'identity'));
-});
-
-test('remote graphs reject cross-origin, insecure, credentialed, and file children before access', async () => {
-  const unsafeChildren = [
-    'https://evil.test/child.xml',
-    '//evil.test/child.xml',
-    'https://cdn.origin.test/child.xml',
-    'https://origin.test:444/child.xml',
-    'https://origin.test@evil.test/child.xml',
-    'https://user:secret@origin.test/child.xml',
-    'http://origin.test/child.xml',
-    pathToFileURL(root).href,
-  ];
-
-  for (const child of unsafeChildren) {
-    const rootUrl = 'https://origin.test/root.xml';
-    const { calls, fetch } = fetchRouter({
-      [rootUrl]: () => xmlResponse(sitemapIndex([child])),
-    });
-
-    await assert.rejects(
-      auditSitemap(rootUrl, { fetch }),
-      /same-origin HTTPS|must not include credentials/,
-      child,
-    );
-    assert.deepEqual(calls.map(({ url }) => url), [rootUrl], child);
-  }
-
-  let fetched = false;
-  await assert.rejects(
-    auditSitemap('https://user:secret@origin.test/root.xml', {
-      fetch: async () => {
-        fetched = true;
-        return xmlResponse(urlset());
-      },
-    }),
-    /must not include credentials/,
-  );
-  assert.equal(fetched, false);
-});
 
 test('local sitemap indexes retain relative and file child support', async (t) => {
   const directory = await mkdtemp(join(tmpdir(), 'sitemap-auditor-local-'));
@@ -320,7 +183,7 @@ test('local sitemap indexes retain relative and file child support', async (t) =
 
   assert.equal(report.summary.documents, 2);
   assert.equal(report.summary.uniqueUrls, 1);
-  assert.deepEqual(report.skippedAlreadyVisited, [child]);
+  assert.equal(report.skippedAlreadyVisited.length, 1);
 });
 
 test('local sitemap indexes cannot initiate remote requests', async (t) => {
@@ -328,347 +191,68 @@ test('local sitemap indexes cannot initiate remote requests', async (t) => {
   t.after(() => rm(directory, { recursive: true, force: true }));
   const index = join(directory, 'index.xml');
   await writeFile(index, sitemapIndex(['https://origin.test/child.xml']));
-  let fetched = false;
-
   await assert.rejects(
-    auditSitemap(index, {
-      fetch: async () => {
-        fetched = true;
-        return xmlResponse(urlset());
-      },
-    }),
+    auditSitemap(index),
     /Local sitemap indexes may reference only local child files/,
   );
-  assert.equal(fetched, false);
 });
 
-test('current and comparison remote roots enforce separate origins', async () => {
-  const currentUrl = 'https://current.test/root.xml';
-  const previousUrl = 'https://previous.test/root.xml';
-  const { calls, fetch } = fetchRouter({
-    [currentUrl]: () => xmlResponse(urlset(['https://example.test/current'])),
-    [previousUrl]: () => xmlResponse(urlset(['https://example.test/previous'])),
-  });
-
-  const report = await auditSitemap(currentUrl, { compare: previousUrl, fetch });
-
-  assert.equal(report.comparison.addedCount, 1);
-  assert.equal(report.comparison.removedCount, 1);
-  assert.deepEqual(calls.map(({ url }) => url), [currentUrl, previousUrl]);
+test('library refuses remote roots and fetch injection before any callback', async () => {
+  let called = false;
+  const fetch = async () => {
+    called = true;
+    throw new Error('callback must not run');
+  };
+  await assert.rejects(auditSitemap('https://example.test/map.xml', { fetch }),
+    /local export|offline/i);
+  await assert.rejects(auditSitemap(root, { fetch }), /fetch option|offline/i);
+  assert.equal(called, false);
+  const ordinary = await auditSitemap(root);
+  assert.equal(ordinary.summary.documents, 4);
 });
 
-test('manually follows standard same-origin redirect statuses', async () => {
-  for (const status of [301, 302, 303, 307, 308]) {
-    const rootUrl = `https://origin.test/${status}/root.xml`;
-    const finalUrl = `https://origin.test/${status}/final.xml`;
-    const { calls, fetch } = fetchRouter({
-      [rootUrl]: () => redirectResponse(status, 'final.xml'),
-      [finalUrl]: () => xmlResponse(urlset(['https://example.test/page'])),
-    });
+test('a remote child yields incomplete CLI evidence without any network request', async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), 'sitemap-remote-child-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const index = join(directory, 'index.xml');
+  await writeFile(index, sitemapIndex(['https://example.test/remote.xml']));
+  const result = spawnSync(process.execPath, [cli, index, '--json'], { encoding: 'utf8' });
+  assert.equal(result.status, 2);
+  assert.equal(result.stderr, '');
+  const report = JSON.parse(result.stdout);
+  assert.equal(report.status, 'incomplete');
+  assert.equal(report.findings[0].rule, 'input-invalid');
+  assert.equal(result.stdout.includes('https://example.test/remote.xml'), false);
+});
 
-    const report = await auditSitemap(rootUrl, { fetch });
-
-    assert.equal(report.summary.uniqueUrls, 1);
-    assert.deepEqual(calls.map(({ url }) => url), [rootUrl, finalUrl]);
-    assert.ok(calls.every(({ options }) => options.redirect === 'manual'));
+test('initial and child symlink escapes are incomplete, while an in-root child passes', async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), 'sitemap-read-root-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const inside = join(directory, 'inside');
+  const outside = join(directory, 'outside');
+  await Promise.all([mkdir(inside), mkdir(outside)]);
+  const outsideFile = join(outside, 'outside.xml');
+  await writeFile(outsideFile, urlset(['https://example.test/outside']));
+  const outsideLink = join(inside, 'outside.xml');
+  await symlink(outsideFile, outsideLink);
+  const index = join(inside, 'index.xml');
+  await writeFile(index, sitemapIndex(['outside.xml']));
+  const initial = join(inside, 'initial.xml');
+  await symlink(outsideFile, initial);
+  for (const source of [initial, index]) {
+    const result = spawnSync(process.execPath, [cli, source, '--json'], { encoding: 'utf8' });
+    assert.equal(result.status, 2, source);
+    assert.equal(JSON.parse(result.stdout).status, 'incomplete');
   }
+  const valid = join(inside, 'valid.xml');
+  await writeFile(valid, urlset(['https://example.test/inside']));
+  await writeFile(index, sitemapIndex(['valid.xml']));
+  const good = await auditSitemap(index);
+  assert.equal(good.summary.documents, 2);
+  const widened = await auditSitemap(index, { root: directory });
+  assert.equal(widened.summary.documents, 2);
 });
 
-test('uses the final same-origin redirect URL as the relative-child base', async () => {
-  const rootUrl = 'https://origin.test/root.xml';
-  const redirectedUrl = 'https://origin.test/maps/root.xml';
-  const childUrl = 'https://origin.test/maps/child.xml';
-  const { calls, fetch } = fetchRouter({
-    [rootUrl]: () => redirectResponse(302, '/maps/root.xml'),
-    [redirectedUrl]: () => xmlResponse(sitemapIndex(['child.xml'])),
-    [childUrl]: () => xmlResponse(urlset(['https://example.test/page'])),
-  });
-
-  const report = await auditSitemap(rootUrl, { fetch });
-
-  assert.equal(report.summary.uniqueUrls, 1);
-  assert.deepEqual(calls.map(({ url }) => url), [rootUrl, redirectedUrl, childUrl]);
-});
-
-test('rejects unsafe redirects before requesting their targets', async () => {
-  const locations = [
-    'http://origin.test/final.xml',
-    'https://evil.test/final.xml',
-    'https://origin.test:444/final.xml',
-    'https://user:secret@origin.test/final.xml',
-    'file:///tmp/final.xml',
-  ];
-
-  for (const location of locations) {
-    const rootUrl = 'https://origin.test/root.xml';
-    const { calls, fetch } = fetchRouter({
-      [rootUrl]: () => redirectResponse(302, location),
-    });
-
-    await assert.rejects(
-      auditSitemap(rootUrl, { fetch }),
-      /same-origin HTTPS|must not include credentials/,
-      location,
-    );
-    assert.deepEqual(calls.map(({ url }) => url), [rootUrl], location);
-  }
-
-  const tracked = trackedBody([Buffer.from('redirect body')]);
-  const rootUrl = 'https://origin.test/cancel.xml';
-  const cancellation = fetchRouter({
-    [rootUrl]: () => responseLike(tracked.body, {
-      status: 302,
-      headers: { location: 'http://origin.test/final.xml' },
-    }),
-  });
-  await assert.rejects(
-    auditSitemap(rootUrl, { fetch: cancellation.fetch }),
-    /same-origin HTTPS/,
-  );
-  assert.equal(tracked.pulls, 0);
-  assert.equal(tracked.cancelled, true);
-});
-
-test('rejects fetch implementations that follow redirects despite manual mode', async () => {
-  const rootUrl = 'https://origin.test/root.xml';
-  const body = trackedBody([Buffer.from(urlset())]);
-  const fetch = async () => ({
-    ...responseLike(body.body),
-    url: 'https://origin.test/final.xml',
-  });
-
-  await assert.rejects(
-    auditSitemap(rootUrl, { fetch }),
-    /followed a redirect unexpectedly/,
-  );
-  assert.equal(body.pulls, 0);
-  assert.equal(body.cancelled, true);
-});
-
-test('enforces the redirect bound, accepts the exact bound, and detects loops', async () => {
-  const exact = fetchRouter({
-    'https://origin.test/a': () => redirectResponse(302, '/b'),
-    'https://origin.test/b': () => redirectResponse(307, '/c'),
-    'https://origin.test/c': () => xmlResponse(urlset()),
-  });
-  await auditSitemap('https://origin.test/a', { fetch: exact.fetch, maxRedirects: 2 });
-  assert.equal(exact.calls.length, 3);
-
-  const excessive = fetchRouter({
-    'https://origin.test/a': () => redirectResponse(302, '/b'),
-    'https://origin.test/b': () => redirectResponse(302, '/c'),
-    'https://origin.test/c': () => redirectResponse(302, '/d'),
-  });
-  await assert.rejects(
-    auditSitemap('https://origin.test/a', { fetch: excessive.fetch, maxRedirects: 2 }),
-    /2-redirect limit/,
-  );
-  assert.equal(excessive.calls.length, 3);
-
-  const zero = fetchRouter({
-    'https://origin.test/a': () => redirectResponse(302, '/b'),
-  });
-  await assert.rejects(
-    auditSitemap('https://origin.test/a', { fetch: zero.fetch, maxRedirects: 0 }),
-    /0-redirect limit/,
-  );
-  assert.equal(zero.calls.length, 1);
-
-  const loop = fetchRouter({
-    'https://origin.test/a': () => redirectResponse(302, '/b'),
-    'https://origin.test/b': () => redirectResponse(302, '/a'),
-  });
-  await assert.rejects(
-    auditSitemap('https://origin.test/a', { fetch: loop.fetch }),
-    /redirect loop/,
-  );
-  assert.equal(loop.calls.length, 2);
-});
-
-test('rejects malformed redirects and does not follow unrelated 3xx statuses', async () => {
-  const missing = fetchRouter({
-    'https://origin.test/root.xml': () => redirectResponse(302),
-  });
-  await assert.rejects(
-    auditSitemap('https://origin.test/root.xml', { fetch: missing.fetch }),
-    /did not include a Location/,
-  );
-
-  const malformed = fetchRouter({
-    'https://origin.test/root.xml': () => redirectResponse(302, 'https://[invalid'),
-  });
-  await assert.rejects(
-    auditSitemap('https://origin.test/root.xml', { fetch: malformed.fetch }),
-    /Invalid redirect Location/,
-  );
-
-  for (const status of [300, 304]) {
-    const rootUrl = `https://origin.test/${status}.xml`;
-    const router = fetchRouter({
-      [rootUrl]: () => new Response(null, { status }),
-    });
-    await assert.rejects(
-      auditSitemap(rootUrl, { fetch: router.fetch }),
-      new RegExp(`HTTP ${status}`),
-    );
-    assert.equal(router.calls.length, 1);
-  }
-});
-
-test('requires a complete 200 response and identity Content-Encoding', async () => {
-  const rootUrl = 'https://origin.test/root.xml';
-  const partial = fetchRouter({
-    [rootUrl]: () => xmlResponse(urlset(), { status: 206 }),
-  });
-  await assert.rejects(
-    auditSitemap(rootUrl, { fetch: partial.fetch }),
-    /HTTP 206/,
-  );
-
-  const tracked = trackedBody([Buffer.from(urlset())]);
-  const encoded = fetchRouter({
-    [rootUrl]: () => responseLike(tracked.body, {
-      headers: { 'content-encoding': 'gzip' },
-    }),
-  });
-  await assert.rejects(
-    auditSitemap(rootUrl, { fetch: encoded.fetch }),
-    /Unsupported Content-Encoding/,
-  );
-  assert.equal(tracked.pulls, 0);
-  assert.equal(tracked.cancelled, true);
-});
-
-test('rejects an oversized declared response before reading its body', async () => {
-  const tracked = trackedBody([Buffer.from(urlset())]);
-  const rootUrl = 'https://origin.test/root.xml';
-  const { fetch } = fetchRouter({
-    [rootUrl]: () => responseLike(tracked.body, {
-      headers: { 'content-length': '65' },
-    }),
-  });
-
-  await assert.rejects(
-    auditSitemap(rootUrl, { fetch, maxXmlBytes: 64 }),
-    /declares a response larger than 64 bytes/,
-  );
-  assert.equal(tracked.pulls, 0);
-  assert.equal(tracked.cancelled, true);
-});
-
-test('enforces streamed response bytes without trusting Content-Length', async () => {
-  for (const headers of [{}, { 'content-length': '1' }]) {
-    const chunks = Array.from({ length: 20 }, () => Buffer.alloc(16, 0x20));
-    const tracked = trackedBody(chunks);
-    const rootUrl = 'https://origin.test/root.xml';
-    const { fetch } = fetchRouter({
-      [rootUrl]: () => responseLike(tracked.body, { headers }),
-    });
-
-    await assert.rejects(
-      auditSitemap(rootUrl, { fetch, maxXmlBytes: 32 }),
-      /exceeds the 32 bytes input limit/,
-    );
-    assert.ok(tracked.pulls < chunks.length, `pulls=${tracked.pulls}`);
-    assert.equal(tracked.cancelled, true);
-  }
-
-  const xml = urlset(['https://example.test/malformed-length']);
-  const tracked = trackedBody([Buffer.from(xml)]);
-  const rootUrl = 'https://origin.test/malformed-length.xml';
-  const malformedLength = fetchRouter({
-    [rootUrl]: () => responseLike(tracked.body, {
-      headers: { 'content-length': 'not-a-number' },
-    }),
-  });
-  const report = await auditSitemap(rootUrl, {
-    fetch: malformedLength.fetch,
-    maxXmlBytes: Buffer.byteLength(xml),
-  });
-  assert.equal(report.summary.uniqueUrls, 1);
-});
-
-test('allows plain XML exactly at the byte limit and rejects limit plus one', async () => {
-  const xml = urlset(['https://example.test/雪é😀']);
-  const size = Buffer.byteLength(xml);
-  const rootUrl = 'https://origin.test/root.xml';
-  const passing = fetchRouter({
-    [rootUrl]: () => xmlResponse(xml),
-  });
-
-  const report = await auditSitemap(rootUrl, {
-    fetch: passing.fetch,
-    maxXmlBytes: size,
-  });
-  assert.equal(report.summary.uniqueUrls, 1);
-
-  const failing = fetchRouter({
-    [rootUrl]: () => xmlResponse(xml),
-  });
-  await assert.rejects(
-    auditSitemap(rootUrl, { fetch: failing.fetch, maxXmlBytes: size - 1 }),
-    new RegExp(`exceeds the ${size - 1} bytes input limit`),
-  );
-});
-
-test('bounds gzip expansion while accepting gzip magic split across chunks', async () => {
-  const oversizedXml = `<urlset>${' '.repeat(1_024)}</urlset>`;
-  const oversizedGzip = gzipSync(oversizedXml);
-  assert.ok(oversizedGzip.length < 128);
-  const rootUrl = 'https://origin.test/root.xml';
-  const oversized = fetchRouter({
-    [rootUrl]: () => xmlResponse(oversizedGzip),
-  });
-
-  await assert.rejects(
-    auditSitemap(rootUrl, { fetch: oversized.fetch, maxXmlBytes: 128 }),
-    /exceeds the 128 bytes uncompressed document limit/,
-  );
-
-  const validXml = `<urlset>${' '.repeat(256)}<url><loc>https://example.test/雪é😀</loc></url></urlset>`;
-  const validGzip = gzipSync(validXml);
-  assert.ok(validGzip.length < Buffer.byteLength(validXml));
-  const split = trackedBody([
-    validGzip.subarray(0, 1),
-    validGzip.subarray(1, 2),
-    validGzip.subarray(2),
-  ]);
-  const valid = fetchRouter({
-    [rootUrl]: () => responseLike(split.body),
-  });
-
-  const report = await auditSitemap(rootUrl, {
-    fetch: valid.fetch,
-    maxXmlBytes: Buffer.byteLength(validXml),
-  });
-  assert.equal(report.summary.uniqueUrls, 1);
-
-  const rawOverflow = trackedBody([
-    Buffer.from([0x1f, 0x8b]),
-    Buffer.alloc(20),
-    Buffer.alloc(20),
-  ]);
-  const overflow = fetchRouter({
-    [rootUrl]: () => responseLike(rawOverflow.body),
-  });
-  await assert.rejects(
-    auditSitemap(rootUrl, { fetch: overflow.fetch, maxXmlBytes: 10 }),
-    /exceeds the 10 bytes input limit/,
-  );
-  assert.equal(rawOverflow.cancelled, true);
-
-  const truncatedGzip = validGzip.subarray(0, validGzip.length - 4);
-  const truncated = fetchRouter({
-    [rootUrl]: () => xmlResponse(truncatedGzip),
-  });
-  await assert.rejects(
-    auditSitemap(rootUrl, {
-      fetch: truncated.fetch,
-      maxXmlBytes: Buffer.byteLength(validXml),
-    }),
-    /Could not decompress/,
-  );
-});
 
 test('applies streamed limits to local plain and gzip documents', async (t) => {
   const directory = await mkdtemp(join(tmpdir(), 'sitemap-auditor-limits-'));
@@ -704,9 +288,33 @@ test('validates injectable safety limits before reading input', async () => {
   for (const maxRedirects of [-1, 1.5, Number.NaN, '2', 6]) {
     await assert.rejects(
       auditSitemap(root, { maxRedirects }),
-      /maxRedirects must be an integer/,
+      /fetch option is unsupported/,
     );
   }
+});
+
+test('explicit root widens local comparison scope but file root is invalid configuration', async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), 'sitemap-explicit-root-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const currentDir = join(directory, 'current');
+  const oldDir = join(directory, 'old');
+  await Promise.all([mkdir(currentDir), mkdir(oldDir)]);
+  const current = join(currentDir, 'map.xml');
+  const previous = join(oldDir, 'map.xml');
+  await writeFile(current, urlset(['https://example.test/new']));
+  await writeFile(previous, urlset(['https://example.test/old']));
+  const narrow = spawnSync(process.execPath,
+    [cli, current, '--compare', previous, '--json'], { encoding: 'utf8' });
+  assert.equal(narrow.status, 2);
+  assert.equal(JSON.parse(narrow.stdout).source, 'baseline');
+  const widened = spawnSync(process.execPath,
+    [cli, current, '--root', directory, '--compare', previous, '--json'], { encoding: 'utf8' });
+  assert.equal(widened.status, 0, widened.stderr);
+  assert.equal(JSON.parse(widened.stdout).comparison.addedCount, 1);
+  const badRoot = spawnSync(process.execPath,
+    [cli, current, '--root', current, '--json'], { encoding: 'utf8' });
+  assert.equal(badRoot.status, 2);
+  assert.equal(badRoot.stdout, '');
 });
 
 test('terminal escaping neutralizes control and bidi characters while preserving Unicode', () => {
