@@ -37,6 +37,8 @@ Options:
 `;
 
 function parseArguments(argv) {
+  const valueFlags = new Set(['--root', '--compare', '--policy', '--timeout-ms']);
+  const seenValueFlags = new Set();
   const options = {
     source: null,
     root: null,
@@ -51,6 +53,10 @@ function parseArguments(argv) {
 
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index];
+    if (valueFlags.has(argument)) {
+      if (seenValueFlags.has(argument)) throw new Error(`Duplicate option: ${argument}`);
+      seenValueFlags.add(argument);
+    }
 
     if (argument === '--json') {
       options.json = true;

@@ -25,6 +25,9 @@ and `now`. `root` and `compare` require non-empty path strings;
 `withCohort` requires an explicit boolean. Unknown or mistyped options are
 configuration errors before input is read. In particular, a string such as
 `"false"` never enables the sensitive `cohort.urls` export.
+On the CLI, `--root`, `--compare`, `--policy`, and `--timeout-ms` each accept
+one value only; repeating one is invalid configuration with empty stdout.
+Repeated boolean `--json` and `--with-cohort` switches are idempotent.
 
 ## Install and run locally
 
