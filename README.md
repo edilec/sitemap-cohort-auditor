@@ -237,6 +237,9 @@ never by quoting it back. `JSON.parse` embeds the input in one of its two error
 messages, so a policy file short enough to be only a credential would otherwise
 be reproduced in full by its own failure — and escaping the diagnostic for the
 terminal does not remove it, because a credential is printable.
+Unreadable or undecodable policy-file diagnostics use a fixed policy-input
+label (and a bounded filesystem error code when available), never the private
+path or raw operating-system message.
 
 ## Safety limits
 
