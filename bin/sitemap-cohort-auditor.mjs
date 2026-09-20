@@ -29,6 +29,8 @@ Options:
   --with-cohort        Include the unique URL list in the JSON report so a
                        later run can use it as a --compare baseline
   --policy <FILE>      Apply a bounded local JSON policy and fail CI on violations
+  --timeout-ms <N>     Monotone analysis deadline in milliseconds (0-60000;
+                       default 30000); exhaustion yields an incomplete report
   --json               Emit deterministic JSON instead of a text summary
   -h, --help           Show this help
   -v, --version        Show the version
@@ -40,6 +42,7 @@ function parseArguments(argv) {
     root: null,
     compare: null,
     policy: null,
+    timeoutMs: null,
     json: false,
     withCohort: false,
     help: false,
@@ -71,6 +74,14 @@ function parseArguments(argv) {
         throw new Error('--policy requires a local JSON file path');
       }
       options.policy = value;
+      index += 1;
+    } else if (argument === '--timeout-ms') {
+      const value = argv[index + 1];
+      if (!value || !/^(?:0|[1-9]\d*)$/.test(value)
+        || !Number.isSafeInteger(Number(value)) || Number(value) > 60_000) {
+        throw new Error('--timeout-ms requires an integer from 0 to 60000');
+      }
+      options.timeoutMs = Number(value);
       index += 1;
     } else if (argument === '-h' || argument === '--help') {
       options.help = true;
@@ -154,9 +165,18 @@ async function main() {
       ...(options.root === null ? {} : { root: options.root }),
       compare: options.compare,
       withCohort: options.withCohort,
+      ...(options.timeoutMs === null ? {} : { timeoutMs: options.timeoutMs }),
     });
     if (loadedPolicy) {
-      const result = evaluatePolicy(report, loadedPolicy.policy);
+      const result = report.deadline && !Number.isSafeInteger(report.summary.uniqueUrls)
+        ? {
+          schemaVersion: 1, status: 'incomplete', passed: null,
+          incompleteRules: Object.keys(loadedPolicy.policy)
+            .filter((key) => key !== 'schemaVersion')
+            .sort((left, right) => left === right ? 0 : left < right ? -1 : 1),
+          findings: [],
+        }
+        : evaluatePolicy(report, loadedPolicy.policy);
       report.policy = {
         ...result,
         source: 'policy',

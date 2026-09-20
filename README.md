@@ -133,6 +133,7 @@ stable severity:
 | `cohort-movement-unknown`, `policy-evidence-incomplete` | warning | Comparison or configured policy lacks sufficient evidence; overall status incomplete |
 | `policy-*` | error | A configured policy rule definitely failed |
 | `input-unreadable`, `input-invalid` | warning | An input document could not be evaluated; overall status incomplete |
+| `timeout-exceeded`, `clock-invalid` | warning | The monotone deadline or injected clock prevents a complete run; overall status incomplete |
 
 Accepted `<lastmod>` formats are `YYYY-MM-DD` and a complete ISO/W3C-style timestamp with seconds and a `Z` or numeric timezone, such as `2026-08-10T12:30:00+05:30`.
 
@@ -229,6 +230,17 @@ terminal does not remove it, because a credential is printable.
 - Each local sitemap file and each uncompressed XML document is streamed with a 50 MiB limit.
 - Policy input must be a local UTF-8 JSON file and is streamed with a 64 KiB limit.
 - A sitemap graph is limited to 10,000 distinct documents.
+- The analysis deadline defaults to 30,000 ms and can be set with
+  `--timeout-ms N` from `0` through `60000`. The library accepts `timeoutMs`
+  and an injected monotone `now` function for deterministic tests. Exactly N
+  elapsed milliseconds remains within the bound; N+1 is incomplete. A timeout
+  returns only source-positioned observations already seen and counts only
+  fully parsed documents as `checked`; it does not publish a partial cohort or
+  claim missing data is absent. Baseline timeouts retain the already complete
+  current audit. A malformed or throwing clock also produces an incomplete
+  report without echoing the clock error. Checks occur around stream chunks,
+  parser records and graph steps; a single synchronous built-in operation
+  cannot be preempted, so wall-clock overshoot can vary under load.
 - Gzip content is detected from its bytes, so local `.gz` files work even when their names are unconventional.
 - Human-readable output escapes terminal control and bidirectional formatting characters.
 
