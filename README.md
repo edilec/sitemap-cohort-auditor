@@ -47,7 +47,10 @@ Use the current sitemap as the main argument and the older sitemap after `--comp
 sitemap-cohort-auditor ./after/sitemap.xml --root . --compare ./before/sitemap.xml
 ```
 
-The comparison uses exact, decoded `<loc>` strings from unique URL entries. It reports URLs added to the current cohort and URLs removed from it. Invalid URL strings are retained in this comparison so a malformed entry cannot silently disappear from review.
+The comparison uses exact, decoded `<loc>` strings from unique URL entries.
+Default reports give added/removed counts and safe current/baseline URL
+ordinals, not raw URL strings. Invalid URL strings remain in the internal
+comparison so malformed entries cannot silently disappear from review.
 
 ### Compare against an earlier report
 
@@ -57,6 +60,12 @@ this tool, so a CI job can compare each release against the one before it
 without keeping old sitemaps around.
 
 A report only carries its URL list when it was produced with `--with-cohort`:
+
+`--with-cohort` deliberately writes the complete exact URL list as a local
+baseline artifact. URLs may contain private paths or query values; store that
+artifact with appropriate access controls. Default reports expose only
+counts, ordinals and fixed source labels. Do not treat an ordinal as the URL
+itself.
 
 ```sh
 # during the release that is about to become "before"
@@ -75,7 +84,7 @@ movement:
 
 | Baseline | `comparison.evidence` | What you get |
 | --- | --- | --- |
-| sitemap, or report with `--with-cohort` | `urls` | exact added and removed lists |
+| sitemap, or report with `--with-cohort` | `urls` | exact internal comparison; added and removed counts with safe ordinals |
 | report without `--with-cohort` | `digest-only` | `cohortChanged` only; added and removed are **unknown**, not zero |
 | legacy version 1 report with its full unique URL list | `urls` | validated against its legacy digest, then compared with version 2 framing |
 | legacy version 1 digest-only report | `legacy-digest-only` | incomplete: the old unframed digest cannot prove version 2 cohort equality |
@@ -99,15 +108,16 @@ The report includes:
 
 - traversed document and sitemap-reference counts;
 - total and unique page URL counts;
-- duplicate URLs and their source sitemap files;
+- duplicate URL counts with URL/document ordinals;
 - total and unique `image:loc` counts;
-- host and scheme counts across unique, valid HTTP(S) page URLs;
+- host ordinals and scheme counts across unique, valid HTTP(S) page URLs;
 - invalid or non-ISO `<lastmod>` values;
 - page URLs containing fragments;
 - invalid page URLs and entries missing `<loc>`;
 - already-visited sitemap children, including circular references;
 - `cohort.count` and `cohort.digest`, plus `cohort.urls` with `--with-cohort`; and
-- optionally, sorted added and removed URL cohorts with the evidence they rest on.
+- optionally, added and removed counts with current/baseline URL ordinals and
+  the evidence they rest on.
 
 Accepted `<lastmod>` formats are `YYYY-MM-DD` and a complete ISO/W3C-style timestamp with seconds and a `Z` or numeric timezone, such as `2026-08-10T12:30:00+05:30`.
 

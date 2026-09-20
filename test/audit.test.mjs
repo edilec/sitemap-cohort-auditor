@@ -54,27 +54,28 @@ test('recursively audits sitemap indexes and reports quality signals', async () 
     missingLocs: 0,
   });
   assert.deepEqual(report.hosts, [
-    { name: 'edilec.com', count: 2 },
-    { name: 'legacy.example.org', count: 1 },
-    { name: 'www.edilec.com', count: 1 },
+    { name: 'host-1', count: 2 },
+    { name: 'host-2', count: 1 },
+    { name: 'host-3', count: 1 },
   ]);
   assert.deepEqual(report.schemes, [
     { name: 'http', count: 1 },
     { name: 'https', count: 3 },
   ]);
-  assert.equal(report.duplicates[0].url, 'https://edilec.com/shared/?x=1&y=2');
+  assert.equal(report.duplicates[0].urlOrdinal, 2);
   assert.equal(report.duplicates[0].count, 2);
 });
 
-test('compares exact decoded URL cohorts', async () => {
-  const report = await auditSitemap(root, { compare: old });
+test('compares exact decoded URL cohorts while projecting movement to ordinals', async () => {
+  const report = await auditSitemap(root, { compare: old, withCohort: true });
 
   assert.deepEqual(report.comparison.added, [
-    'http://legacy.example.org/path#part',
-    'https://www.edilec.com/new/#details',
-    'not a url',
+    { urlOrdinal: 3 },
+    { urlOrdinal: 4 },
+    { urlOrdinal: 5 },
   ]);
-  assert.deepEqual(report.comparison.removed, ['https://edilec.com/old-only/']);
+  assert.deepEqual(report.comparison.removed, [{ baselineUrlOrdinal: 2 }]);
+  assert.ok(report.cohort.urls.includes('https://www.edilec.com/new/#details'));
   assert.equal(report.comparison.addedCount, 3);
   assert.equal(report.comparison.removedCount, 1);
 });
@@ -137,11 +138,12 @@ test('preserves CDATA scalar text without treating it as nested markup', async (
     '</urlset>',
   ].join(''));
 
-  const report = await auditSitemap(path);
+  const report = await auditSitemap(path, { withCohort: true });
   assert.equal(report.summary.urlEntries, 3);
   assert.equal(report.summary.invalidUrls, 2);
-  assert.deepEqual(report.invalidUrls.map(({ url }) => url), ['<b>', '<tag>']);
-  assert.deepEqual(report.hosts, [{ name: 'example.test', count: 1 }]);
+  assert.deepEqual(report.invalidUrls.map(({ urlOrdinal }) => urlOrdinal), [2, 3]);
+  assert.deepEqual(report.cohort.urls, ['<b>', '<tag>', 'https://example.test/path?x=1&y=2']);
+  assert.deepEqual(report.hosts, [{ name: 'host-1', count: 1 }]);
 });
 
 test('rejects nested markup and unterminated CDATA in sitemap scalar fields', async (t) => {
@@ -315,6 +317,51 @@ test('explicit root widens local comparison scope but file root is invalid confi
     [cli, current, '--root', current, '--json'], { encoding: 'utf8' });
   assert.equal(badRoot.status, 2);
   assert.equal(badRoot.stdout, '');
+});
+
+test('default reports use ordinals instead of private URL and file values', async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), 'sitemap-private-report-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const canary = 'SYNTHETIC_SECRET_CANARY';
+  const current = join(directory, `token=${canary}.xml`);
+  const baseline = join(directory, 'baseline.xml');
+  const policy = join(directory, 'policy.json');
+  const currentUrl = `https://hidden.test/?token=${canary}`;
+  await writeFile(current, `<urlset>
+    <url><loc>${currentUrl}</loc><lastmod>token=${canary}</lastmod></url>
+    <url><loc>${currentUrl}</loc></url>
+    <url><loc>${currentUrl}#part</loc></url>
+  </urlset>`);
+  await writeFile(baseline, urlset([`https://old.test/?token=${canary}`]));
+  await writeFile(policy, JSON.stringify({ schemaVersion: 1, allowedHosts: ['example.test'] }));
+
+  for (const format of ['--json', '']) {
+    const args = [cli, current, '--compare', baseline, '--policy', policy];
+    if (format) args.push(format);
+    const result = spawnSync(process.execPath, args, { encoding: 'utf8' });
+    assert.equal(result.status, 1, result.stderr);
+    assert.equal(result.stdout.includes(canary), false);
+    assert.equal(result.stdout.includes('hidden.test'), false);
+    assert.equal(result.stdout.includes('old.test'), false);
+    assert.equal(result.stdout.includes(directory), false);
+    if (format) {
+      const report = JSON.parse(result.stdout);
+      assert.equal(report.source, 'current');
+      assert.equal(report.comparison.source, 'baseline');
+      assert.equal(report.policy.source, 'policy');
+      assert.equal(report.comparison.addedCount, 2);
+      assert.equal(report.comparison.removedCount, 1);
+      assert.equal(report.cohort.urls, undefined);
+      assert.deepEqual(report.documents.map(({ source }) => source), ['document-1']);
+      assert.ok(report.duplicates.every(({ urlOrdinal }) => Number.isInteger(urlOrdinal)));
+      assert.ok(report.policy.findings.some(({ code }) => code === 'DISALLOWED_HOST'));
+    }
+  }
+
+  const explicit = spawnSync(process.execPath,
+    [cli, current, '--with-cohort', '--json'], { encoding: 'utf8' });
+  assert.equal(explicit.status, 0);
+  assert.ok(JSON.parse(explicit.stdout).cohort.urls.includes(currentUrl));
 });
 
 test('terminal escaping neutralizes control and bidi characters while preserving Unicode', () => {

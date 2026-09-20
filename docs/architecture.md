@@ -38,8 +38,10 @@ flowchart LR
 ```
 
 Traversal is depth-first. A visited-source set prevents repeat processing and
-reports circular or duplicate child references. Reports are sorted before
-serialization so the same stable inputs produce the same output.
+reports circular or duplicate child references. Public source and URL
+references are projected to deterministic ordinals before serialization, so
+default output does not echo private filenames or URL query values. Exact
+cohort URLs are emitted only by the explicit `--with-cohort` option.
 
 ## Trust boundaries
 

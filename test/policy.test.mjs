@@ -204,6 +204,22 @@ test('an invalid URL cannot satisfy a host allowlist built from a partial index'
   }
 });
 
+test('a redacted serialized report cannot invent host allowlist evidence', async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), 'sitemap-redacted-host-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const sitemap = join(directory, 'map.xml');
+  await writeFile(sitemap, '<urlset><url><loc>https://example.test/a</loc></url></urlset>');
+  const report = await auditSitemap(sitemap);
+  const policy = { schemaVersion: 1, allowedHosts: ['example.test'] };
+  assert.equal(evaluatePolicy(report, policy).status, 'pass');
+  const serialized = JSON.parse(JSON.stringify(report));
+  assert.deepEqual(serialized.hosts, [{ name: 'host-1', count: 1 }]);
+  const unknown = evaluatePolicy(serialized, policy);
+  assert.equal(unknown.status, 'incomplete');
+  assert.deepEqual(unknown.incompleteRules, ['allowedHosts']);
+  assert.equal(unknown.passed, null);
+});
+
 test('requires a comparison only when maxRemovedUrls is configured', () => {
   const report = completeReport();
   delete report.comparison;
@@ -300,7 +316,7 @@ test('CLI exits zero for a passing policy and includes deterministic policy outp
     passed: true,
     incompleteRules: [],
     findings: [],
-    source: policyPath,
+    source: 'policy',
   });
 
   const missingComparison = spawnSync(

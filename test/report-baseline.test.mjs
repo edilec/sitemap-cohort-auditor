@@ -92,8 +92,8 @@ test('an earlier report with its cohort reports the deliberately removed URL', a
 
     assert.equal(report.comparison.evidence, 'urls');
     assert.equal(report.comparison.cohortChanged, true);
-    assert.deepEqual(report.comparison.removed, ['https://example.com/legacy']);
-    assert.deepEqual(report.comparison.added, ['https://example.com/new']);
+    assert.deepEqual(report.comparison.removed, [{ baselineUrlOrdinal: 3 }]);
+    assert.deepEqual(report.comparison.added, [{ urlOrdinal: 3 }]);
     assert.equal(report.comparison.previousUniqueUrls, 3);
   });
 });
@@ -106,7 +106,7 @@ test('comparing a sitemap against a sitemap still works unchanged', async () => 
     const report = await auditSitemap(after, { compare: before });
 
     assert.equal(report.comparison.evidence, 'urls');
-    assert.deepEqual(report.comparison.removed, ['https://example.com/legacy']);
+    assert.deepEqual(report.comparison.removed, [{ baselineUrlOrdinal: 3 }]);
   });
 });
 
@@ -256,7 +256,7 @@ test('a validated legacy full-list baseline converts to framed comparison eviden
     const report = await auditSitemap(current, { compare: baselinePath });
     assert.equal(report.comparison.evidence, 'urls');
     assert.equal(report.comparison.cohortChanged, true);
-    assert.deepEqual(report.comparison.removed, ['https://example.com/legacy']);
+    assert.deepEqual(report.comparison.removed, [{ baselineUrlOrdinal: 3 }]);
   });
 });
 

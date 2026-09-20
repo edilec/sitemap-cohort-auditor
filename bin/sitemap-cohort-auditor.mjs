@@ -158,7 +158,7 @@ async function main() {
       const result = evaluatePolicy(report, loadedPolicy.policy);
       report.policy = {
         ...result,
-        source: loadedPolicy.path,
+        source: 'policy',
       };
       if (result.status === 'incomplete' || report.status === 'incomplete') report.status = 'incomplete';
       else if (result.status === 'fail') report.status = 'fail';
