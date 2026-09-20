@@ -204,6 +204,26 @@ test('an invalid URL cannot satisfy a host allowlist built from a partial index'
   }
 });
 
+test('an invalid URL cannot satisfy a scheme allowlist built from a partial index', async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), 'sitemap-partial-scheme-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const policy = { schemaVersion: 1, allowedSchemes: ['https'] };
+  for (const [name, url, expected] of [
+    ['clean.xml', 'https://example.test/a', 'pass'],
+    ['unknown.xml', 'ftp://example.test/a', 'incomplete'],
+    ['bad.xml', 'http://example.test/a', 'fail'],
+  ]) {
+    const path = join(directory, name);
+    await writeFile(path, `<urlset><url><loc>${url}</loc></url></urlset>`);
+    const result = evaluatePolicy(await auditSitemap(path), policy);
+    assert.equal(result.status, expected, name);
+    if (expected === 'incomplete') {
+      assert.deepEqual(result.incompleteRules, ['allowedSchemes']);
+      assert.equal(result.passed, null);
+    }
+  }
+});
+
 test('a redacted serialized report cannot invent host allowlist evidence', async (t) => {
   const directory = await mkdtemp(join(tmpdir(), 'sitemap-redacted-host-'));
   t.after(() => rm(directory, { recursive: true, force: true }));
