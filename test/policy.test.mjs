@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
@@ -356,6 +356,27 @@ test('loads only bounded local UTF-8 JSON policy files', async (t) => {
   const oversizedPath = join(directory, 'oversized.json');
   await writeFile(oversizedPath, ' '.repeat(65_537));
   await assert.rejects(loadPolicyFile(oversizedPath), /exceeds the 65,536 byte limit/);
+});
+
+test('policy file read options reject unknown and invalid bounds before reading', async () => {
+  const path = resolve(projectDirectory, 'examples/strict-policy.json');
+  const bytes = (await readFile(path)).length;
+  const exact = await loadPolicyFile(path, { maxPolicyBytes: bytes });
+  assert.equal(exact.policy.schemaVersion, 1);
+  await assert.rejects(loadPolicyFile(path, { maxPolicyBytes: bytes - 1 }), /exceeds/);
+  await assert.rejects(loadPolicyFile(path, { maxPolcyBytes: 1 }), /unsupported policy read option/i);
+  await assert.rejects(loadPolicyFile(resolve(projectDirectory, 'missing-policy.json'), {
+    maxPolcyBytes: 1,
+  }), /unsupported policy read option/i);
+  for (const value of [null, undefined, '1', 1.5, -1]) {
+    await assert.rejects(loadPolicyFile(path, { maxPolicyBytes: value }), /maxPolicyBytes/i);
+  }
+  const accessor = Object.defineProperty({}, 'maxPolicyBytes', {
+    enumerable: true,
+    get() { throw new Error('SYNTHETIC_OPTION_CANARY'); },
+  });
+  await assert.rejects(loadPolicyFile(path, accessor), /data propert/i);
+  await assert.rejects(loadPolicyFile(path, { [Symbol('hidden')]: 1 }), /unsupported policy read option/i);
 });
 
 test('CLI preserves existing output when no policy is supplied', () => {

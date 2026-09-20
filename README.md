@@ -225,8 +225,11 @@ unsupported URL was dropped from that index, those allowlist conclusions are
 incomplete even when every indexed host or scheme is allowed. Independent
 known violations remain in the report; a partial index never proves a pass.
 
-The policy file is never fetched over the network and is limited to 64 KiB. A
-policy gate checks the sitemap declaration supplied to this command; it does
+The policy file is never fetched over the network and is limited to 64 KiB.
+`loadPolicyFile(path, options)` accepts only `maxPolicyBytes`, as a positive
+safe integer no greater than 65,536; unknown option names and explicit
+null/undefined values are configuration errors before file reading. A policy
+gate checks the sitemap declaration supplied to this command; it does
 not crawl listed pages or prove that a release is indexed.
 
 A policy file that does not parse is reported by position, line, and column,
