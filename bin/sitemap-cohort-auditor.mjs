@@ -134,7 +134,8 @@ async function main() {
       ? formatJsonReport(report)
       : formatTextReport(report);
     process.stdout.write(output);
-    if (report.policy && !report.policy.passed) process.exitCode = 3;
+    if (report.policy?.status === 'incomplete') process.exitCode = 2;
+    else if (report.policy?.status === 'fail') process.exitCode = 1;
   } catch (error) {
     console.error(`Audit failed: ${escapeTerminalText(error.message)}`);
     process.exitCode = 1;

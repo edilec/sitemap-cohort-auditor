@@ -182,9 +182,10 @@ limits, and unrecognized schema versions are rejected. Rules use inclusive
 boundaries: a count exactly equal to its minimum or maximum passes. With
 `--json`, the deterministic `policy` object is included in the normal report.
 
-Host and scheme allowlists inspect valid HTTP(S) page URLs. Pair either
-allowlist with `"maxInvalidUrls": 0` when unsupported schemes or malformed URLs
-must fail closed; the bundled strict example does this.
+Host and scheme allowlists inspect valid HTTP(S) page URLs. If a malformed or
+unsupported URL was dropped from that index, those allowlist conclusions are
+incomplete even when every indexed host or scheme is allowed. Independent
+known violations remain in the report; a partial index never proves a pass.
 
 The policy file is never fetched over the network and is limited to 64 KiB. A
 policy gate checks the sitemap declaration supplied to this command; it does

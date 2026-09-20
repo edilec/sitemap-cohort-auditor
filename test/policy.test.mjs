@@ -110,7 +110,9 @@ test('evaluates every supported rule with stable structured findings', () => {
     maxRemovedUrls: 1,
   });
 
-  assert.equal(result.passed, false);
+  assert.equal(result.status, 'incomplete');
+  assert.equal(result.passed, null);
+  assert.deepEqual(result.incompleteRules, ['allowedHosts', 'allowedSchemes']);
   assert.deepEqual(result.findings.map(({ code }) => code), [
     'DISALLOWED_HOST',
     'DISALLOWED_SCHEME',
@@ -145,8 +147,10 @@ test('evaluates every supported rule with stable structured findings', () => {
   }));
 });
 
-test('treats exact thresholds as passing boundaries', () => {
-  const result = evaluatePolicy(completeReport(), {
+test('treats exact thresholds as passing boundaries on complete evidence', () => {
+  const report = completeReport();
+  report.summary.invalidUrls = 0;
+  const result = evaluatePolicy(report, {
     schemaVersion: 1,
     allowedHosts: ['bad.example', 'example.com'],
     allowedSchemes: ['http', 'https'],
@@ -156,12 +160,48 @@ test('treats exact thresholds as passing boundaries', () => {
     maxDuplicateUrlEntries: 2,
     maxInvalidLastmodValues: 3,
     maxFragmentUrls: 4,
-    maxInvalidUrls: 5,
+    maxInvalidUrls: 0,
     maxMissingLocs: 6,
     maxRemovedUrls: 2,
   });
 
-  assert.deepEqual(result, { schemaVersion: 1, passed: true, findings: [] });
+  assert.deepEqual(result, {
+    schemaVersion: 1,
+    status: 'pass',
+    passed: true,
+    incompleteRules: [],
+    findings: [],
+  });
+});
+
+test('an invalid URL cannot satisfy a host allowlist built from a partial index', async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), 'sitemap-partial-host-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const policy = { schemaVersion: 1, allowedHosts: ['example.test'] };
+  const policyPath = join(directory, 'policy.json');
+  await writeFile(policyPath, JSON.stringify(policy));
+
+  const cases = [
+    ['unknown.xml', 'not-a-url', 'incomplete', 2],
+    ['clean.xml', 'https://example.test/a', 'pass', 0],
+    ['bad.xml', 'https://other.test/a', 'fail', 1],
+  ];
+  for (const [name, url, expectedStatus, expectedExit] of cases) {
+    const path = join(directory, name);
+    await writeFile(path, `<urlset><url><loc>${url}</loc></url></urlset>`);
+    const report = await auditSitemap(path);
+    const result = evaluatePolicy(report, policy);
+    assert.equal(result.status, expectedStatus, name);
+    if (name === 'unknown.xml') {
+      assert.equal(result.passed, null);
+      assert.deepEqual(result.incompleteRules, ['allowedHosts']);
+      assert.deepEqual(result.findings, []);
+    }
+    const cliResult = spawnSync(process.execPath,
+      [cli, path, '--policy', policyPath, '--json'], { encoding: 'utf8' });
+    assert.equal(cliResult.status, expectedExit, name);
+    assert.equal(JSON.parse(cliResult.stdout).policy.status, expectedStatus);
+  }
 });
 
 test('requires a comparison only when maxRemovedUrls is configured', () => {
@@ -243,8 +283,6 @@ test('CLI exits zero for a passing policy and includes deterministic policy outp
   const policyPath = join(directory, 'policy.json');
   await writeFile(policyPath, JSON.stringify({
     schemaVersion: 1,
-    allowedHosts: ['edilec.com', 'legacy.example.org', 'www.edilec.com'],
-    allowedSchemes: ['http', 'https'],
     minUniqueUrls: 5,
     maxInvalidUrls: 1,
     maxRemovedUrls: 1,
@@ -258,7 +296,9 @@ test('CLI exits zero for a passing policy and includes deterministic policy outp
   assert.equal(first.stdout, second.stdout);
   assert.deepEqual(JSON.parse(first.stdout).policy, {
     schemaVersion: 1,
+    status: 'pass',
     passed: true,
+    incompleteRules: [],
     findings: [],
     source: policyPath,
   });
@@ -273,7 +313,7 @@ test('CLI exits zero for a passing policy and includes deterministic policy outp
   assert.match(missingComparison.stderr, /maxRemovedUrls requires --compare/);
 });
 
-test('CLI exits three for policy findings while still emitting the full report', async (t) => {
+test('CLI reports known violations but exits incomplete for a partial URL index', async (t) => {
   const directory = await mkdtemp(join(tmpdir(), 'sitemap-policy-fail-'));
   t.after(() => rm(directory, { recursive: true, force: true }));
   const policyPath = join(directory, 'policy.json');
@@ -287,11 +327,13 @@ test('CLI exits three for policy findings while still emitting the full report',
   const result = spawnSync(process.execPath, [cli, root, '--policy', policyPath, '--json'], {
     encoding: 'utf8',
   });
-  assert.equal(result.status, 3);
+  assert.equal(result.status, 2);
   assert.equal(result.stderr, '');
   const report = JSON.parse(result.stdout);
   assert.equal(report.summary.uniqueUrls, 5);
-  assert.equal(report.policy.passed, false);
+  assert.equal(report.policy.status, 'incomplete');
+  assert.equal(report.policy.passed, null);
+  assert.deepEqual(report.policy.incompleteRules, ['allowedHosts', 'allowedSchemes']);
   assert.deepEqual(report.policy.findings.map(({ code }) => code), [
     'DISALLOWED_HOST',
     'DISALLOWED_HOST',

@@ -72,7 +72,9 @@
   },
   "policy": {
     "schemaVersion": 1,
+    "status": "pass",
     "passed": true,
+    "incompleteRules": [],
     "findings": [],
     "source": "./examples/release/policy.json"
   }
