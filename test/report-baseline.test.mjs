@@ -299,6 +299,22 @@ test('a malformed cohort section is rejected', async () => {
   });
 });
 
+test('an unreadable comparison input is incomplete with a private baseline label', async () => {
+  await withTempDir(async (directory) => {
+    const current = await write(directory, 'current.xml', urlset(AFTER));
+    const missing = join(directory, 'token=SYNTHETIC_SECRET_CANARY.json');
+    const result = spawnSync(process.execPath,
+      [cli, current, '--compare', missing, '--json'], { encoding: 'utf8' });
+    assert.equal(result.status, 2);
+    assert.equal(result.stderr, '');
+    assert.equal(result.stdout.includes('SYNTHETIC_SECRET_CANARY'), false);
+    const report = JSON.parse(result.stdout);
+    assert.equal(report.status, 'incomplete');
+    assert.equal(report.source, 'baseline');
+    assert.deepEqual(report.findings.map(({ rule }) => rule), ['input-unreadable']);
+  });
+});
+
 test('a JSON file that is not one of our reports is treated as a sitemap source', async () => {
   await withTempDir(async (directory) => {
     const after = await write(directory, 'after.xml', urlset(AFTER));

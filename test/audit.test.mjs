@@ -785,7 +785,7 @@ test('terminal-safe JSON is deterministic, parseable, and semantically lossless'
   assert.match(first, /\\uDB40\\uDC01/);
 });
 
-test('CLI usage and runtime errors escape hostile terminal input', () => {
+test('CLI usage errors escape controls and unreadable input hides hostile paths', () => {
   const unsafeOption = '--bad-\x1b[31m\nforged';
   const usage = spawnSync(process.execPath, [cli, unsafeOption], { encoding: 'utf8' });
   assert.equal(usage.status, 2);
@@ -795,12 +795,30 @@ test('CLI usage and runtime errors escape hostile terminal input', () => {
 
   const unsafePath = resolve(projectDirectory, 'missing-\x1b[31m\r.xml');
   const runtime = spawnSync(process.execPath, [cli, unsafePath, '--json'], { encoding: 'utf8' });
-  assert.equal(runtime.status, 1);
-  assert.equal(runtime.stdout, '');
-  assert.equal(runtime.stderr.includes('\x1b'), false);
-  assert.equal(runtime.stderr.includes('\r'), false);
-  assert.match(runtime.stderr, /\\u001B/);
-  assert.match(runtime.stderr, /\\u000D/);
+  assert.equal(runtime.status, 2);
+  assert.equal(runtime.stderr, '');
+  assert.equal(runtime.stdout.includes('missing-'), false);
+  assert.equal(runtime.stdout.includes('\x1b'), false);
+  assert.equal(JSON.parse(runtime.stdout).status, 'incomplete');
+});
+
+test('unreadable sitemap emits incomplete report without disclosing its filename', () => {
+  const missing = resolve(projectDirectory, 'token=SYNTHETIC_SECRET_CANARY.xml');
+  for (const flag of ['--json', '']) {
+    const args = [cli, missing];
+    if (flag) args.push(flag);
+    const result = spawnSync(process.execPath, args, { encoding: 'utf8' });
+    assert.equal(result.status, 2);
+    assert.equal(result.stderr, '');
+    assert.ok(result.stdout.length > 0);
+    assert.equal(result.stdout.includes('SYNTHETIC_SECRET_CANARY'), false);
+    if (flag) {
+      const report = JSON.parse(result.stdout);
+      assert.equal(report.status, 'incomplete');
+      assert.equal(report.source, 'current');
+      assert.deepEqual(report.findings.map(({ rule }) => rule), ['input-unreadable']);
+    }
+  }
 });
 
 test('CLI JSON output is deterministic and parseable', () => {
@@ -814,11 +832,12 @@ test('CLI JSON output is deterministic and parseable', () => {
   assert.equal(report.comparison.removedCount, 1);
 });
 
-test('rejects insecure remote sources', () => {
+test('remote source configuration is refused without an input report', () => {
   const result = spawnSync(process.execPath, [cli, 'http://example.com/sitemap.xml'], {
     encoding: 'utf8',
   });
 
-  assert.equal(result.status, 1);
-  assert.match(result.stderr, /Unsupported source protocol "http:"/);
+  assert.equal(result.status, 2);
+  assert.equal(result.stdout, '');
+  assert.match(result.stderr, /Local sitemap input is required/);
 });

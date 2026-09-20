@@ -5,6 +5,7 @@ import {
   escapeTerminalText,
   formatJsonReport,
   formatTextReport,
+  incompleteInputReport,
   VERSION,
 } from '../lib/audit.mjs';
 import { evaluatePolicy, loadPolicyFile } from '../lib/policy.mjs';
@@ -102,6 +103,13 @@ async function main() {
     return;
   }
 
+  if ([options.source, options.compare].some((value) => value
+    && /^[A-Za-z][A-Za-z0-9+.-]*:/.test(value) && !value.startsWith('file:'))) {
+    console.error('Error: Local sitemap input is required');
+    process.exitCode = 2;
+    return;
+  }
+
   let loadedPolicy = null;
   if (options.policy) {
     try {
@@ -139,8 +147,9 @@ async function main() {
     if (report.status === 'incomplete') process.exitCode = 2;
     else if (report.status === 'fail') process.exitCode = 1;
   } catch (error) {
-    console.error(`Audit failed: ${escapeTerminalText(error.message)}`);
-    process.exitCode = 1;
+    const report = incompleteInputReport(error);
+    process.stdout.write(options.json ? formatJsonReport(report) : formatTextReport(report));
+    process.exitCode = 2;
   }
 }
 

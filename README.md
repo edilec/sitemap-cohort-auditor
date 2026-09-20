@@ -88,8 +88,8 @@ movement:
 | legacy version 1 report with its full unique URL list | `urls` | validated against its legacy digest, then compared with version 2 framing |
 | legacy version 1 digest-only report | `legacy-digest-only` | incomplete: the old unframed digest cannot prove version 2 cohort equality |
 
-A `maxRemovedUrls` policy rule against a digest-only baseline is a configuration
-error, not a pass. Unknown evidence never satisfies a threshold.
+A `maxRemovedUrls` policy rule against a digest-only baseline is incomplete,
+not a pass. Unknown evidence never satisfies a threshold.
 
 A report whose count, sorted unique URL list, digest shape or algorithm is
 inconsistent is rejected, as is JSON with duplicate keys. An edited artifact
@@ -240,10 +240,12 @@ boundaries in detail.
 
 ## Exit codes
 
-- `0`: audit completed, even if quality findings were reported;
-- `1`: the sitemap could not be loaded or parsed safely;
-- `2`: command-line usage or policy-configuration error;
-- `3`: the audit completed but one or more configured policy rules failed.
+- `0`: complete evidence and no configured policy violation;
+- `1`: a configured policy rule definitely failed on complete evidence;
+- `2`: incomplete evidence, including unreadable or malformed local input, or
+  invalid command-line/policy configuration. Input problems emit a JSON or
+  human report with `status: incomplete`; configuration errors leave stdout
+  empty.
 
 ## License
 
