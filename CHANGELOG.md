@@ -8,6 +8,9 @@ The project follows [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- Semantic policy validation no longer repeats unknown key names or unsupported
+  host and scheme values in API errors or CLI diagnostics. The known property
+  and unrecognized-key count remain available for local correction.
 - a policy file that does not parse is no longer quoted back on stderr.
   `JSON.parse` embeds the input in one of its two error messages
   (`Unexpected token 'A', "AKIA…" is not valid JSON`), so a policy file short

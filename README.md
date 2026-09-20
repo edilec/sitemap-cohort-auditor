@@ -240,6 +240,8 @@ terminal does not remove it, because a credential is printable.
 Unreadable or undecodable policy-file diagnostics use a fixed policy-input
 label (and a bounded filesystem error code when available), never the private
 path or raw operating-system message.
+Semantic policy errors identify a known property or count unrecognized keys;
+they do not repeat unsupported host, scheme or key text from the input file.
 
 ## Safety limits
 

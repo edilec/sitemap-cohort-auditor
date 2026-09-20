@@ -70,7 +70,7 @@ test('rejects malformed, ambiguous, and unknown policy properties', () => {
     [{}, /schemaVersion.*required/],
     [{ schemaVersion: 2, minUniqueUrls: 1 }, /schemaVersion must be 1/],
     [{ schemaVersion: 1 }, /at least one rule/],
-    [{ schemaVersion: 1, mystery: 0 }, /Unknown policy property: mystery/],
+    [{ schemaVersion: 1, mystery: 0 }, /Unknown policy property/],
     [{ schemaVersion: 1, minUniqueUrls: -1 }, /non-negative safe integer/],
     [{ schemaVersion: 1, minUniqueUrls: 1.5 }, /non-negative safe integer/],
     [{ schemaVersion: 1, minUniqueUrls: Number.MAX_SAFE_INTEGER + 1 }, /non-negative safe integer/],
@@ -92,6 +92,34 @@ test('rejects malformed, ambiguous, and unknown policy properties', () => {
 
   const symbol = { schemaVersion: 1, minUniqueUrls: 1, [Symbol('hidden')]: true };
   assert.throws(() => parsePolicyObject(symbol), /symbol properties/);
+});
+
+test('semantic policy errors identify the field without repeating private key or value text', async (t) => {
+  const canary = 'SYNTHETIC_SECRET_CANARY';
+  const cases = [
+    { schemaVersion: 1, [`token=${canary}`]: 1 },
+    { schemaVersion: 1, allowedSchemes: [`token=${canary}`] },
+    { schemaVersion: 1, allowedHosts: [`https://${canary}`] },
+  ];
+  const directory = await mkdtemp(join(tmpdir(), 'sitemap-policy-semantic-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+
+  for (const [index, value] of cases.entries()) {
+    assert.throws(() => parsePolicyObject(value), (error) => {
+      assert.equal(error.message.includes(canary), false);
+      assert.match(error.message, /policy property|Policy property/);
+      return true;
+    });
+    const policyPath = join(directory, `policy-${index}.json`);
+    await writeFile(policyPath, JSON.stringify(value));
+    const result = spawnSync(process.execPath, [cli, root, '--policy', policyPath, '--json'], {
+      encoding: 'utf8',
+    });
+    assert.equal(result.status, 2);
+    assert.equal(result.stdout, '');
+    assert.equal(result.stderr.includes(canary), false);
+    assert.match(result.stderr, /Policy error:/);
+  }
 });
 
 test('evaluates every supported rule with stable structured findings', () => {
