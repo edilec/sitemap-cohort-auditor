@@ -8,6 +8,7 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import { auditSitemap, cohortDigest, formatTextReport } from '../lib/audit.mjs';
+import * as auditModule from '../lib/audit.mjs';
 import { evaluatePolicy } from '../lib/policy.mjs';
 
 const cli = resolve(dirname(fileURLToPath(import.meta.url)), '../bin/sitemap-cohort-auditor.mjs');
@@ -21,6 +22,32 @@ ${urls.map((url) => `  <url><loc>${url}</loc></url>`).join('\n')}
 
 const BEFORE = ['https://example.com/a', 'https://example.com/b', 'https://example.com/legacy'];
 const AFTER = ['https://example.com/a', 'https://example.com/b', 'https://example.com/new'];
+
+test('comparison reader stops at the byte limit instead of consuming the rest', async () => {
+  assert.equal(typeof auditModule.readBoundedReportBytes, 'function');
+  async function* exactlyAtLimit() {
+    yield Buffer.from('ab');
+    yield Buffer.from('cde');
+  }
+  const exact = await auditModule.readBoundedReportBytes(exactlyAtLimit(), 5);
+  assert.equal(exact.toString(), 'abcde');
+
+  let consumed = 0;
+  let closed = false;
+  async function* overLimit() {
+    try {
+      for (const part of ['abc', 'def', 'must-not-be-read']) {
+        consumed += 1;
+        yield Buffer.from(part);
+      }
+    } finally {
+      closed = true;
+    }
+  }
+  await assert.rejects(auditModule.readBoundedReportBytes(overLimit(), 5), /5 byte limit/);
+  assert.equal(consumed, 2);
+  assert.equal(closed, true);
+});
 
 async function withTempDir(run) {
   const directory = await mkdtemp(join(tmpdir(), 'cohort-baseline-'));
