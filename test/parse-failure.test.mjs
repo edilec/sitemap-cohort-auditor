@@ -122,7 +122,7 @@ test('parseFailureDetail keeps the position and drops the quoted window', () => 
       JSON.parse(text);
       throw new Error('that text parsed');
     } catch (error) {
-      return parseFailureDetail(error);
+      return parseFailureDetail(error, text);
     }
   };
 
@@ -140,6 +140,22 @@ test('parseFailureDetail keeps the position and drops the quoted window', () => 
   assert.equal(detail(LONG_SECRET), "unexpected token 'p' near the start");
   assert.equal(detail(`[ }${CANARY}]`), "unexpected token '}' near the start");
   assert.equal(detail(`{"aaaaaaaaaaaaaa": [ }${CANARY} ]}`), "unexpected token '}'");
+});
+
+test('a runtime that omits line and column still gets them from the source position', () => {
+  const single = '{"schemaVersion": 1 "minUniqueUrls": 1}';
+  const error = new SyntaxError("Expected ',' or '}' after property value in JSON at position 20");
+  assert.equal(
+    parseFailureDetail(error, single),
+    "Expected ',' or '}' after property value in JSON at position 20 (line 1 column 21)",
+  );
+
+  const multiline = '{"a":\n 1 "b": 2}';
+  const position = multiline.indexOf('"b"');
+  assert.equal(
+    parseFailureDetail(new SyntaxError(`Unexpected token at position ${position}`), multiline),
+    `Unexpected token at position ${position} (line 2 column 4)`,
+  );
 });
 
 test('parseFailureDetail refuses a policy whose own bytes imitate a position', () => {
