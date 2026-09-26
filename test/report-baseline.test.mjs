@@ -352,8 +352,28 @@ test('an unreadable comparison input is incomplete with a private baseline label
     assert.equal(result.stdout.includes('SYNTHETIC_SECRET_CANARY'), false);
     const report = JSON.parse(result.stdout);
     assert.equal(report.status, 'incomplete');
-    assert.equal(report.source, 'baseline');
-    assert.deepEqual(report.findings.map(({ rule }) => rule), ['input-unreadable']);
+    assert.equal(report.source, 'current');
+    assert.equal(report.summary.checked, 1);
+    assert.equal(report.summary.uniqueUrls, 3);
+    assert.equal(report.comparison.status, 'incomplete');
+    assert.ok(report.findings.some(({ ruleId }) => ruleId === 'input-unreadable'));
+  });
+});
+
+test('an unreadable baseline retains known current quality findings', async () => {
+  await withTempDir(async (directory) => {
+    const current = await write(directory, 'current.xml', urlset([...BEFORE, BEFORE[0]]));
+    const missing = join(directory, 'token=SYNTHETIC_SECRET_CANARY.json');
+    const result = spawnSync(process.execPath,
+      [cli, current, '--compare', missing, '--json'], { encoding: 'utf8' });
+    assert.equal(result.status, 2);
+    assert.equal(result.stdout.includes('SYNTHETIC_SECRET_CANARY'), false);
+    const report = JSON.parse(result.stdout);
+    assert.equal(report.status, 'incomplete');
+    assert.equal(report.summary.checked, 1);
+    assert.equal(report.summary.duplicateUrls, 1);
+    assert.ok(report.findings.some(({ ruleId }) => ruleId === 'duplicate-url'));
+    assert.ok(report.findings.some(({ ruleId }) => ruleId === 'input-unreadable'));
   });
 });
 

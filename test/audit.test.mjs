@@ -311,7 +311,11 @@ test('explicit root widens local comparison scope but file root is invalid confi
   const narrow = spawnSync(process.execPath,
     [cli, current, '--compare', previous, '--json'], { encoding: 'utf8' });
   assert.equal(narrow.status, 2);
-  assert.equal(JSON.parse(narrow.stdout).source, 'baseline');
+  const narrowReport = JSON.parse(narrow.stdout);
+  assert.equal(narrowReport.source, 'current');
+  assert.equal(narrowReport.summary.checked, 1);
+  assert.equal(narrowReport.comparison.source, 'baseline');
+  assert.equal(narrowReport.comparison.status, 'incomplete');
   const widened = spawnSync(process.execPath,
     [cli, current, '--root', directory, '--compare', previous, '--json'], { encoding: 'utf8' });
   assert.equal(widened.status, 0, widened.stderr);
