@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { gzipSync } from 'node:zlib';
 
 import { auditSitemap, cohortDigest, formatTextReport } from '../lib/audit.mjs';
 import * as auditModule from '../lib/audit.mjs';
@@ -63,6 +64,27 @@ async function write(directory, name, contents) {
   await writeFile(path, contents);
   return path;
 }
+
+test('a gzip sitemap baseline uses the bounded sitemap reader', async () => {
+  await withTempDir(async (directory) => {
+    const xml = urlset(BEFORE);
+    const current = await write(directory, 'current.xml', xml);
+    const baseline = await write(directory, 'baseline.xml.gz',
+      gzipSync(xml.replace('</urlset>', `${' '.repeat(256)}</urlset>`)));
+
+    const report = await auditSitemap(current, { compare: baseline });
+    assert.equal(report.status, 'pass');
+    assert.equal(report.comparison.evidence, 'urls');
+    assert.equal(report.comparison.cohortChanged, false);
+    assert.equal(report.comparison.addedCount, 0);
+    assert.equal(report.comparison.removedCount, 0);
+
+    await assert.rejects(
+      auditSitemap(current, { compare: baseline, maxXmlBytes: Buffer.byteLength(xml) }),
+      /uncompressed document limit/,
+    );
+  });
+});
 
 test('the cohort digest is stable and order-independent', () => {
   const digest = cohortDigest(['https://example.com/a', 'https://example.com/b']);
