@@ -41,24 +41,24 @@ strings. The utility does not treat these as equivalent:
 This is useful for detecting declaration drift, but it is not URL
 canonicalization.
 
-## Remote traversal is deliberately constrained
+## Inputs are local exports
 
-Remote child sitemaps and redirects must remain on the starting URL's exact
-HTTPS origin. Distributed sitemap estates that intentionally place child files
-on another origin must audit those origins separately. Automatic content
-encoding is rejected because the utility applies its own bounded gzip handling.
+The tool does not fetch a sitemap, follow an HTTP redirect, or accept a network
+callback. Export distributed sitemap files locally and use an explicit read root
+that contains them. It cannot prove the export is complete or current.
 
 ## Resource bounds are per document
 
-The 50 MiB transfer and decoded-size limits apply to each document. A graph can
-contain up to 10,000 documents, so aggregate network use and processing time can
+The 50 MiB file and decoded-size limits apply to each document. A graph can
+contain up to 10,000 documents, so aggregate processing time can
 still be substantial. Do not expose this command as an unauthenticated hosted
 service. A decoded document is held in memory during extraction.
 
 ## Local input inherits local filesystem risk
 
-Local child references can traverse directories or resolve through symlinks.
-Do not run an untrusted local sitemap index with broad filesystem permissions.
+The initial file, children and comparison input are confined to the real read
+root. Out-of-root references and symlink targets are refused. Use least-privilege
+filesystem permissions for untrusted exports.
 
 ## Policy is a release gate, not a prediction
 

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
@@ -70,7 +70,7 @@ test('rejects malformed, ambiguous, and unknown policy properties', () => {
     [{}, /schemaVersion.*required/],
     [{ schemaVersion: 2, minUniqueUrls: 1 }, /schemaVersion must be 1/],
     [{ schemaVersion: 1 }, /at least one rule/],
-    [{ schemaVersion: 1, mystery: 0 }, /Unknown policy property: mystery/],
+    [{ schemaVersion: 1, mystery: 0 }, /Unknown policy property/],
     [{ schemaVersion: 1, minUniqueUrls: -1 }, /non-negative safe integer/],
     [{ schemaVersion: 1, minUniqueUrls: 1.5 }, /non-negative safe integer/],
     [{ schemaVersion: 1, minUniqueUrls: Number.MAX_SAFE_INTEGER + 1 }, /non-negative safe integer/],
@@ -94,6 +94,34 @@ test('rejects malformed, ambiguous, and unknown policy properties', () => {
   assert.throws(() => parsePolicyObject(symbol), /symbol properties/);
 });
 
+test('semantic policy errors identify the field without repeating private key or value text', async (t) => {
+  const canary = 'SYNTHETIC_SECRET_CANARY';
+  const cases = [
+    { schemaVersion: 1, [`token=${canary}`]: 1 },
+    { schemaVersion: 1, allowedSchemes: [`token=${canary}`] },
+    { schemaVersion: 1, allowedHosts: [`https://${canary}`] },
+  ];
+  const directory = await mkdtemp(join(tmpdir(), 'sitemap-policy-semantic-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+
+  for (const [index, value] of cases.entries()) {
+    assert.throws(() => parsePolicyObject(value), (error) => {
+      assert.equal(error.message.includes(canary), false);
+      assert.match(error.message, /policy property|Policy property/);
+      return true;
+    });
+    const policyPath = join(directory, `policy-${index}.json`);
+    await writeFile(policyPath, JSON.stringify(value));
+    const result = spawnSync(process.execPath, [cli, root, '--policy', policyPath, '--json'], {
+      encoding: 'utf8',
+    });
+    assert.equal(result.status, 2);
+    assert.equal(result.stdout, '');
+    assert.equal(result.stderr.includes(canary), false);
+    assert.match(result.stderr, /Policy error:/);
+  }
+});
+
 test('evaluates every supported rule with stable structured findings', () => {
   const result = evaluatePolicy(completeReport(), {
     schemaVersion: 1,
@@ -110,12 +138,16 @@ test('evaluates every supported rule with stable structured findings', () => {
     maxRemovedUrls: 1,
   });
 
-  assert.equal(result.passed, false);
+  assert.equal(result.status, 'incomplete');
+  assert.equal(result.passed, null);
+  assert.deepEqual(result.incompleteRules, ['allowedHosts', 'allowedSchemes']);
   assert.deepEqual(result.findings.map(({ code }) => code), [
     'DISALLOWED_HOST',
     'DISALLOWED_SCHEME',
-    'MAX_DUPLICATE_URL_ENTRIES',
+    // Code-unit order: 'S' (0x53) sorts before '_' (0x5F). Locale collation
+    // treats the underscore as ignorable punctuation and reverses these two.
     'MAX_DUPLICATE_URLS',
+    'MAX_DUPLICATE_URL_ENTRIES',
     'MAX_FRAGMENT_URLS',
     'MAX_INVALID_LASTMOD_VALUES',
     'MAX_INVALID_URLS',
@@ -143,8 +175,10 @@ test('evaluates every supported rule with stable structured findings', () => {
   }));
 });
 
-test('treats exact thresholds as passing boundaries', () => {
-  const result = evaluatePolicy(completeReport(), {
+test('treats exact thresholds as passing boundaries on complete evidence', () => {
+  const report = completeReport();
+  report.summary.invalidUrls = 0;
+  const result = evaluatePolicy(report, {
     schemaVersion: 1,
     allowedHosts: ['bad.example', 'example.com'],
     allowedSchemes: ['http', 'https'],
@@ -154,12 +188,141 @@ test('treats exact thresholds as passing boundaries', () => {
     maxDuplicateUrlEntries: 2,
     maxInvalidLastmodValues: 3,
     maxFragmentUrls: 4,
-    maxInvalidUrls: 5,
+    maxInvalidUrls: 0,
     maxMissingLocs: 6,
     maxRemovedUrls: 2,
   });
 
-  assert.deepEqual(result, { schemaVersion: 1, passed: true, findings: [] });
+  assert.deepEqual(result, {
+    schemaVersion: 1,
+    status: 'pass',
+    passed: true,
+    incompleteRules: [],
+    findings: [],
+  });
+});
+
+test('a configured threshold with missing or invalid observed count is incomplete', () => {
+  const rules = [
+    ['minUniqueUrls', 'uniqueUrls'],
+    ['minUniqueImages', 'uniqueImages'],
+    ['maxDuplicateUrls', 'duplicateUrls'],
+    ['maxDuplicateUrlEntries', 'duplicateUrlEntries'],
+    ['maxInvalidLastmodValues', 'invalidLastmodValues'],
+    ['maxFragmentUrls', 'fragmentUrls'],
+    ['maxInvalidUrls', 'invalidUrls'],
+    ['maxMissingLocs', 'missingLocs'],
+  ];
+  for (const [rule, metric] of rules) {
+    for (const value of [undefined, null, Number.NaN, -1, 0.5, Number.POSITIVE_INFINITY,
+      Number.MAX_SAFE_INTEGER + 1]) {
+      const result = evaluatePolicy({ summary: { [metric]: value } }, {
+        schemaVersion: 1, [rule]: 1,
+      });
+      assert.equal(result.status, 'incomplete', `${rule}: ${String(value)}`);
+      assert.equal(result.passed, null);
+      assert.deepEqual(result.incompleteRules, [rule]);
+      assert.deepEqual(result.findings, []);
+    }
+  }
+  const knownAndUnknown = evaluatePolicy({ summary: { duplicateUrls: 1 } }, {
+    schemaVersion: 1, minUniqueUrls: 1, maxDuplicateUrls: 0,
+  });
+  assert.equal(knownAndUnknown.status, 'incomplete');
+  assert.deepEqual(knownAndUnknown.incompleteRules, ['minUniqueUrls']);
+  assert.deepEqual(knownAndUnknown.findings, [
+    { code: 'MAX_DUPLICATE_URLS', actual: 1, maximum: 0 },
+  ]);
+  const exact = evaluatePolicy({ summary: { uniqueUrls: 1 } }, {
+    schemaVersion: 1, minUniqueUrls: 1,
+  });
+  assert.equal(exact.status, 'pass');
+  assert.deepEqual(exact.incompleteRules, []);
+});
+
+test('maxRemovedUrls cannot use an unsafe or missing comparison count', () => {
+  const policy = { schemaVersion: 1, maxRemovedUrls: 0 };
+  for (const value of [undefined, null, Number.NaN, -1, 0.5,
+    Number.POSITIVE_INFINITY, Number.MAX_SAFE_INTEGER + 1]) {
+    const result = evaluatePolicy({ summary: {}, comparison: { removedCount: value } }, policy);
+    assert.equal(result.status, 'incomplete', String(value));
+    assert.equal(result.passed, null);
+    assert.deepEqual(result.incompleteRules, ['maxRemovedUrls']);
+    assert.deepEqual(result.findings, []);
+  }
+  const exact = evaluatePolicy({ summary: {}, comparison: { removedCount: 0 } }, policy);
+  assert.equal(exact.status, 'pass');
+  const exceeded = evaluatePolicy({ summary: {}, comparison: { removedCount: 1 } }, policy);
+  assert.equal(exceeded.status, 'fail');
+  assert.deepEqual(exceeded.findings, [
+    { code: 'MAX_REMOVED_URLS', actual: 1, maximum: 0 },
+  ]);
+});
+
+test('an invalid URL cannot satisfy a host allowlist built from a partial index', async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), 'sitemap-partial-host-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const policy = { schemaVersion: 1, allowedHosts: ['example.test'] };
+  const policyPath = join(directory, 'policy.json');
+  await writeFile(policyPath, JSON.stringify(policy));
+
+  const cases = [
+    ['unknown.xml', 'not-a-url', 'incomplete', 2],
+    ['clean.xml', 'https://example.test/a', 'pass', 0],
+    ['bad.xml', 'https://other.test/a', 'fail', 1],
+  ];
+  for (const [name, url, expectedStatus, expectedExit] of cases) {
+    const path = join(directory, name);
+    await writeFile(path, `<urlset><url><loc>${url}</loc></url></urlset>`);
+    const report = await auditSitemap(path);
+    const result = evaluatePolicy(report, policy);
+    assert.equal(result.status, expectedStatus, name);
+    if (name === 'unknown.xml') {
+      assert.equal(result.passed, null);
+      assert.deepEqual(result.incompleteRules, ['allowedHosts']);
+      assert.deepEqual(result.findings, []);
+    }
+    const cliResult = spawnSync(process.execPath,
+      [cli, path, '--policy', policyPath, '--json'], { encoding: 'utf8' });
+    assert.equal(cliResult.status, expectedExit, name);
+    assert.equal(JSON.parse(cliResult.stdout).policy.status, expectedStatus);
+  }
+});
+
+test('an invalid URL cannot satisfy a scheme allowlist built from a partial index', async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), 'sitemap-partial-scheme-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const policy = { schemaVersion: 1, allowedSchemes: ['https'] };
+  for (const [name, url, expected] of [
+    ['clean.xml', 'https://example.test/a', 'pass'],
+    ['unknown.xml', 'ftp://example.test/a', 'incomplete'],
+    ['bad.xml', 'http://example.test/a', 'fail'],
+  ]) {
+    const path = join(directory, name);
+    await writeFile(path, `<urlset><url><loc>${url}</loc></url></urlset>`);
+    const result = evaluatePolicy(await auditSitemap(path), policy);
+    assert.equal(result.status, expected, name);
+    if (expected === 'incomplete') {
+      assert.deepEqual(result.incompleteRules, ['allowedSchemes']);
+      assert.equal(result.passed, null);
+    }
+  }
+});
+
+test('a redacted serialized report cannot invent host allowlist evidence', async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), 'sitemap-redacted-host-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const sitemap = join(directory, 'map.xml');
+  await writeFile(sitemap, '<urlset><url><loc>https://example.test/a</loc></url></urlset>');
+  const report = await auditSitemap(sitemap);
+  const policy = { schemaVersion: 1, allowedHosts: ['example.test'] };
+  assert.equal(evaluatePolicy(report, policy).status, 'pass');
+  const serialized = JSON.parse(JSON.stringify(report));
+  assert.deepEqual(serialized.hosts, [{ name: 'host-1', count: 1 }]);
+  const unknown = evaluatePolicy(serialized, policy);
+  assert.equal(unknown.status, 'incomplete');
+  assert.deepEqual(unknown.incompleteRules, ['allowedHosts']);
+  assert.equal(unknown.passed, null);
 });
 
 test('requires a comparison only when maxRemovedUrls is configured', () => {
@@ -223,6 +386,27 @@ test('loads only bounded local UTF-8 JSON policy files', async (t) => {
   await assert.rejects(loadPolicyFile(oversizedPath), /exceeds the 65,536 byte limit/);
 });
 
+test('policy file read options reject unknown and invalid bounds before reading', async () => {
+  const path = resolve(projectDirectory, 'examples/strict-policy.json');
+  const bytes = (await readFile(path)).length;
+  const exact = await loadPolicyFile(path, { maxPolicyBytes: bytes });
+  assert.equal(exact.policy.schemaVersion, 1);
+  await assert.rejects(loadPolicyFile(path, { maxPolicyBytes: bytes - 1 }), /exceeds/);
+  await assert.rejects(loadPolicyFile(path, { maxPolcyBytes: 1 }), /unsupported policy read option/i);
+  await assert.rejects(loadPolicyFile(resolve(projectDirectory, 'missing-policy.json'), {
+    maxPolcyBytes: 1,
+  }), /unsupported policy read option/i);
+  for (const value of [null, undefined, '1', 1.5, -1]) {
+    await assert.rejects(loadPolicyFile(path, { maxPolicyBytes: value }), /maxPolicyBytes/i);
+  }
+  const accessor = Object.defineProperty({}, 'maxPolicyBytes', {
+    enumerable: true,
+    get() { throw new Error('SYNTHETIC_OPTION_CANARY'); },
+  });
+  await assert.rejects(loadPolicyFile(path, accessor), /data propert/i);
+  await assert.rejects(loadPolicyFile(path, { [Symbol('hidden')]: 1 }), /unsupported policy read option/i);
+});
+
 test('CLI preserves existing output when no policy is supplied', () => {
   const json = spawnSync(process.execPath, [cli, root, '--json'], { encoding: 'utf8' });
   assert.equal(json.status, 0);
@@ -241,8 +425,6 @@ test('CLI exits zero for a passing policy and includes deterministic policy outp
   const policyPath = join(directory, 'policy.json');
   await writeFile(policyPath, JSON.stringify({
     schemaVersion: 1,
-    allowedHosts: ['edilec.com', 'legacy.example.org', 'www.edilec.com'],
-    allowedSchemes: ['http', 'https'],
     minUniqueUrls: 5,
     maxInvalidUrls: 1,
     maxRemovedUrls: 1,
@@ -256,9 +438,11 @@ test('CLI exits zero for a passing policy and includes deterministic policy outp
   assert.equal(first.stdout, second.stdout);
   assert.deepEqual(JSON.parse(first.stdout).policy, {
     schemaVersion: 1,
+    status: 'pass',
     passed: true,
+    incompleteRules: [],
     findings: [],
-    source: policyPath,
+    source: 'policy',
   });
 
   const missingComparison = spawnSync(
@@ -271,7 +455,7 @@ test('CLI exits zero for a passing policy and includes deterministic policy outp
   assert.match(missingComparison.stderr, /maxRemovedUrls requires --compare/);
 });
 
-test('CLI exits three for policy findings while still emitting the full report', async (t) => {
+test('CLI reports known violations but exits incomplete for a partial URL index', async (t) => {
   const directory = await mkdtemp(join(tmpdir(), 'sitemap-policy-fail-'));
   t.after(() => rm(directory, { recursive: true, force: true }));
   const policyPath = join(directory, 'policy.json');
@@ -285,11 +469,13 @@ test('CLI exits three for policy findings while still emitting the full report',
   const result = spawnSync(process.execPath, [cli, root, '--policy', policyPath, '--json'], {
     encoding: 'utf8',
   });
-  assert.equal(result.status, 3);
+  assert.equal(result.status, 2);
   assert.equal(result.stderr, '');
   const report = JSON.parse(result.stdout);
   assert.equal(report.summary.uniqueUrls, 5);
-  assert.equal(report.policy.passed, false);
+  assert.equal(report.policy.status, 'incomplete');
+  assert.equal(report.policy.passed, null);
+  assert.deepEqual(report.policy.incompleteRules, ['allowedHosts', 'allowedSchemes']);
   assert.deepEqual(report.policy.findings.map(({ code }) => code), [
     'DISALLOWED_HOST',
     'DISALLOWED_HOST',

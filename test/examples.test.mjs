@@ -41,6 +41,7 @@ test('checked-in release report matches the CLI, comparison, and policy fixtures
   const result = spawnSync(process.execPath, [
     cli,
     resolve(exampleDirectory, 'after/index.xml'),
+    '--root', exampleDirectory,
     '--compare',
     resolve(exampleDirectory, 'before.xml'),
     '--policy',

@@ -1,10 +1,14 @@
 #!/usr/bin/env node
 
+import { realpath, stat } from 'node:fs/promises';
+
 import {
   auditSitemap,
+  completeReportEnvelope,
   escapeTerminalText,
   formatJsonReport,
   formatTextReport,
+  incompleteInputReport,
   VERSION,
 } from '../lib/audit.mjs';
 import { evaluatePolicy, loadPolicyFile } from '../lib/policy.mjs';
@@ -12,38 +16,61 @@ import { evaluatePolicy, loadPolicyFile } from '../lib/policy.mjs';
 const HELP = `sitemap-cohort-auditor ${VERSION}
 
 Usage:
-  sitemap-cohort-auditor <SITEMAP> [--compare <OLD_SITEMAP>] [--policy <POLICY_JSON>] [--json]
+  sitemap-cohort-auditor <SITEMAP> [--root <DIRECTORY>] [--compare <BASELINE>] [--policy <POLICY_JSON>] [--json]
 
 Arguments:
-  SITEMAP              Local sitemap XML/.gz file or HTTPS URL
+  SITEMAP              Local sitemap XML/.gz export
 
 Options:
-  --compare <SOURCE>   Compare the current unique URL cohort with an older sitemap
+  --root <DIRECTORY>   Explicit local root for the current/child/baseline files;
+                       default is the current sitemap's parent directory
+  --compare <SOURCE>   Compare the current unique URL cohort with an older
+                       sitemap or with an earlier --json report from this tool
+  --with-cohort        Include the unique URL list in the JSON report so a
+                       later run can use it as a --compare baseline
   --policy <FILE>      Apply a bounded local JSON policy and fail CI on violations
+  --timeout-ms <N>     Monotone analysis deadline in milliseconds (0-60000;
+                       default 30000); exhaustion yields an incomplete report
   --json               Emit deterministic JSON instead of a text summary
   -h, --help           Show this help
   -v, --version        Show the version
 `;
 
 function parseArguments(argv) {
+  const valueFlags = new Set(['--root', '--compare', '--policy', '--timeout-ms']);
+  const seenValueFlags = new Set();
   const options = {
     source: null,
+    root: null,
     compare: null,
     policy: null,
+    timeoutMs: null,
     json: false,
+    withCohort: false,
     help: false,
     version: false,
   };
 
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index];
+    if (valueFlags.has(argument)) {
+      if (seenValueFlags.has(argument)) throw new Error(`Duplicate option: ${argument}`);
+      seenValueFlags.add(argument);
+    }
 
     if (argument === '--json') {
       options.json = true;
+    } else if (argument === '--with-cohort') {
+      options.withCohort = true;
+    } else if (argument === '--root') {
+      const value = argv[index + 1];
+      if (!value || value.startsWith('-')) throw new Error('--root requires a local directory');
+      options.root = value;
+      index += 1;
     } else if (argument === '--compare') {
       const value = argv[index + 1];
       if (!value || value.startsWith('-')) {
-        throw new Error('--compare requires a local sitemap path or HTTPS URL');
+        throw new Error('--compare requires a local sitemap or report path');
       }
       options.compare = value;
       index += 1;
@@ -53,6 +80,14 @@ function parseArguments(argv) {
         throw new Error('--policy requires a local JSON file path');
       }
       options.policy = value;
+      index += 1;
+    } else if (argument === '--timeout-ms') {
+      const value = argv[index + 1];
+      if (!value || !/^(?:0|[1-9]\d*)$/.test(value)
+        || !Number.isSafeInteger(Number(value)) || Number(value) > 60_000) {
+        throw new Error('--timeout-ms requires an integer from 0 to 60000');
+      }
+      options.timeoutMs = Number(value);
       index += 1;
     } else if (argument === '-h' || argument === '--help') {
       options.help = true;
@@ -96,6 +131,25 @@ async function main() {
     return;
   }
 
+  if ([options.source, options.compare].some((value) => value
+    && /^[A-Za-z][A-Za-z0-9+.-]*:/.test(value) && !value.startsWith('file:'))) {
+    console.error('Error: Local sitemap input is required');
+    process.exitCode = 2;
+    return;
+  }
+  if (options.root !== null) {
+    try {
+      if (/^[A-Za-z][A-Za-z0-9+.-]*:/.test(options.root)
+        || !(await stat(await realpath(options.root))).isDirectory()) {
+        throw new Error('invalid root');
+      }
+    } catch {
+      console.error('Error: --root must name an existing local directory');
+      process.exitCode = 2;
+      return;
+    }
+  }
+
   let loadedPolicy = null;
   if (options.policy) {
     try {
@@ -113,22 +167,40 @@ async function main() {
   }
 
   try {
-    const report = await auditSitemap(options.source, { compare: options.compare });
+    const report = await auditSitemap(options.source, {
+      ...(options.root === null ? {} : { root: options.root }),
+      ...(options.compare === null ? {} : { compare: options.compare }),
+      withCohort: options.withCohort,
+      ...(options.timeoutMs === null ? {} : { timeoutMs: options.timeoutMs }),
+    });
     if (loadedPolicy) {
-      const result = evaluatePolicy(report, loadedPolicy.policy);
+      const result = report.deadline && !Number.isSafeInteger(report.summary.uniqueUrls)
+        ? {
+          schemaVersion: 1, status: 'incomplete', passed: null,
+          incompleteRules: Object.keys(loadedPolicy.policy)
+            .filter((key) => key !== 'schemaVersion')
+            .sort((left, right) => left === right ? 0 : left < right ? -1 : 1),
+          findings: [],
+        }
+        : evaluatePolicy(report, loadedPolicy.policy);
       report.policy = {
         ...result,
-        source: loadedPolicy.path,
+        source: 'policy',
       };
+      if (result.status === 'incomplete' || report.status === 'incomplete') report.status = 'incomplete';
+      else if (result.status === 'fail') report.status = 'fail';
     }
+    completeReportEnvelope(report);
     const output = options.json
       ? formatJsonReport(report)
       : formatTextReport(report);
     process.stdout.write(output);
-    if (report.policy && !report.policy.passed) process.exitCode = 3;
+    if (report.status === 'incomplete') process.exitCode = 2;
+    else if (report.status === 'fail') process.exitCode = 1;
   } catch (error) {
-    console.error(`Audit failed: ${escapeTerminalText(error.message)}`);
-    process.exitCode = 1;
+    const report = incompleteInputReport(error);
+    process.stdout.write(options.json ? formatJsonReport(report) : formatTextReport(report));
+    process.exitCode = 2;
   }
 }
 

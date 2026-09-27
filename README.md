@@ -8,15 +8,26 @@
 A dependency-free Node.js command-line utility for checking sitemap cohorts before and after a site release. It follows nested sitemap indexes, counts page and image entries, and highlights changes or metadata problems that are easy to miss in very large sitemaps.
 
 **Status:** maintained. The supported runtime is Node.js 20 or newer; CI covers
-Node.js 20, 22, and 24. Reports use schema version `1`; release-policy files use
+Node.js 20, 22, and 24. Reports use schema version `2`; release-policy files use
 schema version `1`.
 
 ## Requirements
 
 - Node.js 20 or newer
-- A local sitemap XML/XML.GZ file or an HTTPS sitemap URL
+- A local sitemap XML/XML.GZ export
 
-The utility uses only Node built-ins. It does not send results to a service or require an API key.
+The utility uses only Node built-ins and never makes a network request. It
+does not send results to a service or require an API key.
+
+The `auditSitemap(path, options)` library entry point accepts only own data
+properties named `root`, `compare`, `withCohort`, `maxXmlBytes`, `timeoutMs`,
+and `now`. `root` and `compare` require non-empty path strings;
+`withCohort` requires an explicit boolean. Unknown or mistyped options are
+configuration errors before input is read. In particular, a string such as
+`"false"` never enables the sensitive `cohort.urls` export.
+On the CLI, `--root`, `--compare`, `--policy`, and `--timeout-ms` each accept
+one value only; repeating one is invalid configuration with empty stdout.
+Repeated boolean `--json` and `--with-cohort` switches are idempotent.
 
 ## Install and run locally
 
@@ -32,30 +43,68 @@ After installing the package globally or linking it with `npm link`, use the sho
 sitemap-cohort-auditor ./sitemap.xml
 ```
 
-To install the recommended release directly from its checksummed package:
-
-```sh
-npm install --global https://github.com/edilec/sitemap-cohort-auditor/releases/download/v0.2.2/sitemap-cohort-auditor-0.2.2.tgz
-sitemap-cohort-auditor ./sitemap.xml
-```
-
-Release artifacts and checksums are available on the [latest release page](https://github.com/edilec/sitemap-cohort-auditor/releases/latest).
-
-Remote input must use HTTPS:
-
-```sh
-sitemap-cohort-auditor https://example.com/sitemap.xml
-```
+Export a sitemap to a local file before auditing. URL inputs and network
+fetch callbacks are not supported. The default read root is the real parent
+directory of the initial sitemap. Use `--root DIRECTORY` only when an exported
+index, comparison sitemap or baseline report legitimately spans sibling
+directories. The initial file and every child must resolve inside that root.
 
 ## Compare two URL cohorts
 
 Use the current sitemap as the main argument and the older sitemap after `--compare`:
 
 ```sh
-sitemap-cohort-auditor ./after/sitemap.xml --compare ./before/sitemap.xml
+sitemap-cohort-auditor ./after/sitemap.xml --root . --compare ./before/sitemap.xml
 ```
 
-The comparison uses exact, decoded `<loc>` strings from unique URL entries. It reports URLs added to the current cohort and URLs removed from it. Invalid URL strings are retained in this comparison so a malformed entry cannot silently disappear from review.
+The comparison uses exact, decoded `<loc>` strings from unique URL entries.
+Default reports give added/removed counts and safe current/baseline URL
+ordinals, not raw URL strings. Invalid URL strings remain in the internal
+comparison so malformed entries cannot silently disappear from review.
+
+### Compare against an earlier report
+
+After a release the previous sitemap is usually gone, but the audit artifact
+you stored is not. `--compare` also accepts an earlier `--json` report from
+this tool, so a CI job can compare each release against the one before it
+without keeping old sitemaps around.
+
+A report only carries its URL list when it was produced with `--with-cohort`:
+
+`--with-cohort` deliberately writes the complete exact URL list as a local
+baseline artifact. URLs may contain private paths or query values; store that
+artifact with appropriate access controls. Default reports expose only
+counts, ordinals and fixed source labels. Do not treat an ordinal as the URL
+itself.
+
+```sh
+# during the release that is about to become "before"
+sitemap-cohort-auditor ./sitemap.xml --json --with-cohort > release-42.json
+
+# during the next release
+sitemap-cohort-auditor ./sitemap.xml --compare ./release-42.json --json
+```
+
+Every report always records `cohort.count`, `cohort.digestAlgorithm`, and
+`cohort.digest`. Version 2 fingerprints the sorted unique URLs with a
+length-framed UTF-16LE SHA-256 input, so an embedded newline cannot make one
+URL hash like two entries. If the baseline report has the digest
+but not the URL list, the comparison says so rather than reporting zero
+movement:
+
+| Baseline | `comparison.evidence` | What you get |
+| --- | --- | --- |
+| sitemap, or report with `--with-cohort` | `urls` | exact internal comparison; added and removed counts with safe ordinals |
+| report without `--with-cohort` | `digest-only` | `cohortChanged` only; added and removed are **unknown**, so the run is incomplete (exit `2`) |
+| legacy version 1 report with its full unique URL list | `urls` | validated against its legacy digest, then compared with version 2 framing |
+| legacy version 1 digest-only report | `legacy-digest-only` | incomplete: the old unframed digest cannot prove version 2 cohort equality |
+
+A `maxRemovedUrls` policy rule against a digest-only baseline is incomplete,
+not a pass. Unknown evidence never satisfies a threshold.
+
+A report whose count, sorted unique URL list, digest shape or algorithm is
+inconsistent is rejected, as is JSON with duplicate keys. An edited artifact
+cannot quietly redefine the baseline.
 
 ## Machine-readable output
 
@@ -67,16 +116,34 @@ sitemap-cohort-auditor ./sitemap.xml --json > sitemap-audit.json
 
 The report includes:
 
+- the house envelope (`tool`, `status`, `summary.checked/errors/warnings`,
+  `findings`); `checked` counts fully audited local sitemap documents, not
+  declarations inferred from missing or unsupported evidence;
 - traversed document and sitemap-reference counts;
 - total and unique page URL counts;
-- duplicate URLs and their source sitemap files;
+- duplicate URL counts with URL/document ordinals;
 - total and unique `image:loc` counts;
-- host and scheme counts across unique, valid HTTP(S) page URLs;
+- host ordinals and scheme counts across unique, valid HTTP(S) page URLs;
 - invalid or non-ISO `<lastmod>` values;
 - page URLs containing fragments;
 - invalid page URLs and entries missing `<loc>`;
-- already-visited sitemap children, including circular references; and
-- optionally, sorted added and removed URL cohorts.
+- already-visited sitemap children, including circular references;
+- `cohort.count` and `cohort.digest`, plus `cohort.urls` with `--with-cohort`; and
+- optionally, added and removed counts with current/baseline URL ordinals and
+  the evidence they rest on.
+
+`findings` use fixed source labels (`current`, `baseline`, `policy`) and
+array-position pointers, sorted by UTF-16 code units. They never include
+arbitrary URL, filename or policy values. The following emitted rules have
+stable severity:
+
+| Finding rule | Severity | Evidence |
+| --- | --- | --- |
+| `duplicate-url`, `url-fragment`, `invalid-url`, `lastmod-invalid`, `loc-missing` | warning | A known sitemap quality observation |
+| `cohort-movement-unknown`, `policy-evidence-incomplete` | warning | Comparison or configured policy lacks sufficient evidence; overall status incomplete |
+| `policy-*` | error | A configured policy rule definitely failed |
+| `input-unreadable`, `input-invalid` | warning | An input document could not be evaluated; overall status incomplete |
+| `timeout-exceeded`, `clock-invalid` | warning | The monotone deadline or injected clock prevents a complete run; overall status incomplete |
 
 Accepted `<lastmod>` formats are `YYYY-MM-DD` and a complete ISO/W3C-style timestamp with seconds and a `Z` or numeric timezone, such as `2026-08-10T12:30:00+05:30`.
 
@@ -89,6 +156,7 @@ from the repository root:
 ```sh
 node ./bin/sitemap-cohort-auditor.mjs \
   ./examples/release/after/index.xml \
+  --root ./examples/release \
   --compare ./examples/release/before.xml \
   --policy ./examples/release/policy.json \
   --json
@@ -104,7 +172,7 @@ CLI output.
 Add `--policy` to turn selected sitemap findings into an explicit CI gate:
 
 ```sh
-sitemap-cohort-auditor ./after/sitemap.xml \
+sitemap-cohort-auditor ./after/sitemap.xml --root . \
   --compare ./before/sitemap.xml \
   --policy ./sitemap-policy.json
 ```
@@ -147,32 +215,62 @@ Unknown properties, duplicate allowed values, unsupported schemes, negative
 limits, and unrecognized schema versions are rejected. Rules use inclusive
 boundaries: a count exactly equal to its minimum or maximum passes. With
 `--json`, the deterministic `policy` object is included in the normal report.
+The exported `evaluatePolicy` API evaluates a count only when the observed
+metric is a nonnegative safe integer. Missing, fractional, negative or
+non-finite evidence makes that configured rule incomplete, while independent
+known violations remain visible; it never turns an unknown count into a pass.
 
-Host and scheme allowlists inspect valid HTTP(S) page URLs. Pair either
-allowlist with `"maxInvalidUrls": 0` when unsupported schemes or malformed URLs
-must fail closed; the bundled strict example does this.
+Host and scheme allowlists inspect valid HTTP(S) page URLs. If a malformed or
+unsupported URL was dropped from that index, those allowlist conclusions are
+incomplete even when every indexed host or scheme is allowed. Independent
+known violations remain in the report; a partial index never proves a pass.
 
-The policy file is never fetched over the network and is limited to 64 KiB. A
-policy gate checks the sitemap declaration supplied to this command; it does
+The policy file is never fetched over the network and is limited to 64 KiB.
+`loadPolicyFile(path, options)` accepts only `maxPolicyBytes`, as a positive
+safe integer no greater than 65,536; unknown option names and explicit
+null/undefined values are configuration errors before file reading. A policy
+gate checks the sitemap declaration supplied to this command; it does
 not crawl listed pages or prove that a release is indexed.
+
+A policy file that does not parse is reported by position, line, and column,
+never by quoting it back. `JSON.parse` embeds the input in one of its two error
+messages, so a policy file short enough to be only a credential would otherwise
+be reproduced in full by its own failure — and escaping the diagnostic for the
+terminal does not remove it, because a credential is printable.
+Unreadable or undecodable policy-file diagnostics use a fixed policy-input
+label (and a bounded filesystem error code when available), never the private
+path or raw operating-system message.
+Semantic policy errors identify a known property or count unrecognized keys;
+they do not repeat unsupported host, scheme or key text from the input file.
 
 ## Safety limits
 
-- HTTP input is rejected. Remote child sitemaps and redirects must stay on the starting URL's HTTPS origin.
-- Local sitemap indexes may reference only local child files; they cannot initiate remote requests.
-- Remote redirects are followed manually, with at most five redirects across a request.
-- Remote request chains time out after 30 seconds.
-- Each sitemap transfer and each uncompressed XML document is streamed with a 50 MiB limit.
+- All sitemap and comparison inputs are local exports. Remote roots, children,
+  fetch callbacks and redirect options are unsupported; no network is opened.
+- The initial file, local children and comparison input must resolve inside
+  the real read root. Out-of-root symlinks make the run incomplete.
+- Each local sitemap file and each uncompressed XML document is streamed with a 50 MiB limit.
 - Policy input must be a local UTF-8 JSON file and is streamed with a 64 KiB limit.
 - A sitemap graph is limited to 10,000 distinct documents.
-- Gzip content is detected from its bytes, so local and remote `.gz` files are supported even when their names are unconventional.
+- The analysis deadline defaults to 30,000 ms and can be set with
+  `--timeout-ms N` from `0` through `60000`. The library accepts `timeoutMs`
+  and an injected monotone `now` function for deterministic tests. Exactly N
+  elapsed milliseconds remains within the bound; N+1 is incomplete. A timeout
+  returns only source-positioned observations already seen and counts only
+  fully parsed documents as `checked`; it does not publish a partial cohort or
+  claim missing data is absent. Baseline timeouts retain the already complete
+  current audit. A malformed or throwing clock also produces an incomplete
+  report without echoing the clock error. Checks occur around stream chunks,
+  parser records and graph steps; a single synchronous built-in operation
+  cannot be preempted, so wall-clock overshoot can vary under load.
+- Gzip content is detected from its bytes, so local `.gz` files work even when their names are unconventional.
 - Human-readable output escapes terminal control and bidirectional formatting characters.
 
 ## Architecture
 
 The utility separates source loading and traversal, report finalization,
-comparison, policy evaluation, and presentation. Remote fetches cross a strict
-same-origin HTTPS boundary; local indexes cannot initiate network access. See
+comparison, policy evaluation, and presentation. The source loader has no
+network branch and confines local reads to the declared root. See
 [Architecture and data flow](./docs/architecture.md) for the component map,
 trust boundaries, resource limits, and security-sensitive change areas.
 
@@ -183,21 +281,24 @@ This is a focused sitemap checker, not a general XML validator or crawler.
 - It reads standard sitemap `<url>`, `<sitemap>`, `<loc>`, `<lastmod>`, and `image:loc` elements with a small, dependency-free extractor. It does not validate arbitrary XML schemas, signatures, or DTDs.
 - Image counting expects the conventional `image:loc` prefix.
 - It audits sitemap declarations; it does not request every listed page, verify canonical tags, assess page quality, or estimate search rankings.
-- Counts describe the sitemap at audit time. A changing remote sitemap can produce different results on later runs.
+- Counts describe the exported sitemap at audit time, not a live site.
 - A successful audit does not guarantee indexing. Search engines make their own crawling and indexing decisions.
 - The byte limit is per document. Very large sitemap graphs can still require substantial aggregate work, so do not expose this CLI as an unauthenticated hosted service.
-- Local child paths can traverse directories or resolve through symlinks. Review untrusted local sitemap indexes before running them in a privileged environment.
+- An out-of-root child path or symlink is refused as incomplete; the tool does
+  not prove that an exported sitemap was a complete snapshot of a live site.
 
 The expanded [limitations and non-goals](./docs/limitations-and-non-goals.md)
-document explains the XML, URL-comparison, remote-origin, resource, and policy
+document explains the XML, URL-comparison, local-root, resource, and policy
 boundaries in detail.
 
 ## Exit codes
 
-- `0`: audit completed, even if quality findings were reported;
-- `1`: the sitemap could not be loaded or parsed safely;
-- `2`: command-line usage or policy-configuration error;
-- `3`: the audit completed but one or more configured policy rules failed.
+- `0`: complete evidence and no configured policy violation;
+- `1`: a configured policy rule definitely failed on complete evidence;
+- `2`: incomplete evidence, including unreadable or malformed local input, or
+  invalid command-line/policy configuration. Input problems emit a JSON or
+  human report with `status: incomplete`; configuration errors leave stdout
+  empty.
 
 ## License
 

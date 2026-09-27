@@ -4,6 +4,56 @@ All notable changes to Sitemap Cohort Auditor are documented here.
 
 The project follows [Semantic Versioning](https://semver.org/).
 
+## Unreleased
+
+### Fixed
+
+- Semantic policy validation no longer repeats unknown key names or unsupported
+  host and scheme values in API errors or CLI diagnostics. The known property
+  and unrecognized-key count remain available for local correction.
+- a policy file that does not parse is no longer quoted back on stderr.
+  `JSON.parse` embeds the input in one of its two error messages
+  (`Unexpected token 'A', "AKIA…" is not valid JSON`), so a policy file short
+  enough to be only a credential was reproduced in full by
+  `Could not parse policy file … as JSON: …`, and a longer one ten characters
+  at a time. `escapeTerminalText` did not stop it: a credential is printable.
+  `parseFailureDetail` in `lib/policy.mjs` keeps the position, line, and column
+  and drops the quotation.
+
+### Added
+
+- `--compare` accepts an earlier `--json` report from this tool, not only an
+  older sitemap. After a release the previous sitemap is usually gone while the
+  stored audit artifact is not.
+- every report records `cohort.count` and `cohort.digest`, a SHA-256
+  fingerprint over the sorted unique URLs, so a baseline can prove whether the
+  cohort changed.
+- `--with-cohort` includes `cohort.urls` in the JSON report so a later run can
+  recover exactly which URLs moved.
+- `comparison.evidence` distinguishes `urls` from `digest-only`, alongside
+  `cohortChanged`, `previousCohortDigest`, and `baselineKind`.
+- exported `cohortDigest`.
+
+### Fixed
+
+- findings, duplicate lists, host and scheme counts, and cohort URLs are now
+  ordered by UTF-16 code unit rather than by locale. `localeCompare` depends on
+  ICU data that varies between Node builds and platforms, so the same sitemap
+  could produce differently ordered output on two correct machines and a release
+  comparison diffing those reports would see changes that are not there.
+  This changes one observable order: `MAX_DUPLICATE_URLS` now precedes
+  `MAX_DUPLICATE_URL_ENTRIES`, because `S` sorts before `_` by code point while
+  locale collation treats the underscore as ignorable punctuation. The checked-in
+  release fixture is unaffected.
+
+### Changed
+
+- a digest-only baseline reports added and removed URLs as unknown instead of
+  zero, and a `maxRemovedUrls` policy rule against one is rejected as a
+  configuration error rather than evaluated as compliance.
+- a comparison report whose `cohort.urls` disagrees with its own
+  `cohort.digest` is rejected.
+
 ## [Unreleased]
 
 ## [0.2.2] - 2026-08-26

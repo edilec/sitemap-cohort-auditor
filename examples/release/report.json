@@ -1,6 +1,7 @@
 {
-  "schemaVersion": 1,
-  "source": "./examples/release/after/index.xml",
+  "schemaVersion": 2,
+  "status": "pass",
+  "source": "current",
   "summary": {
     "documents": 3,
     "sitemapReferences": 2,
@@ -14,11 +15,14 @@
     "invalidLastmodValues": 0,
     "fragmentUrls": 0,
     "invalidUrls": 0,
-    "missingLocs": 0
+    "missingLocs": 0,
+    "checked": 3,
+    "errors": 0,
+    "warnings": 0
   },
   "hosts": [
     {
-      "name": "www.example.com",
+      "name": "host-1",
       "count": 5
     }
   ],
@@ -35,36 +39,55 @@
   "missingLocs": [],
   "documents": [
     {
-      "source": "./examples/release/after/content.xml",
-      "type": "urlset"
-    },
-    {
-      "source": "./examples/release/after/index.xml",
+      "source": "document-1",
       "type": "sitemapindex"
     },
     {
-      "source": "./examples/release/after/pages.xml",
+      "source": "document-2",
+      "type": "urlset"
+    },
+    {
+      "source": "document-3",
       "type": "urlset"
     }
   ],
   "skippedAlreadyVisited": [],
+  "cohort": {
+    "count": 5,
+    "digestAlgorithm": "sha256-framed-utf16le-v2",
+    "digest": "sha256:ee6ae44f7161df908e74ac188ff3d35ac58b940e6eb146f8bea2c09a5fef5179"
+  },
   "comparison": {
-    "source": "./examples/release/before.xml",
+    "source": "baseline",
+    "baselineKind": "sitemap-or-report",
     "previousUniqueUrls": 4,
+    "previousCohortDigest": "sha256:1aa6d8c10c67dbcd25c5b1a17cb571be198b0193b1d8c3e91b486adf58b08066",
+    "evidence": "urls",
+    "cohortChanged": true,
     "addedCount": 2,
     "removedCount": 1,
     "added": [
-      "https://www.example.com/blog/security-model/",
-      "https://www.example.com/docs/configuration/"
+      {
+        "urlOrdinal": 3
+      },
+      {
+        "urlOrdinal": 5
+      }
     ],
     "removed": [
-      "https://www.example.com/docs/legacy/"
+      {
+        "baselineUrlOrdinal": 3
+      }
     ]
   },
+  "tool": "sitemap-cohort-auditor",
+  "findings": [],
   "policy": {
     "schemaVersion": 1,
+    "status": "pass",
     "passed": true,
+    "incompleteRules": [],
     "findings": [],
-    "source": "./examples/release/policy.json"
+    "source": "policy"
   }
 }
