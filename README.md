@@ -167,6 +167,9 @@ removal, two image declarations, and no invalid metadata. A test keeps the
 checked-in [`report.json`](./examples/release/report.json) synchronized with the
 CLI output.
 
+For a browser-readable explanation of the same public fixture and result, see
+the [Sitemap Cohort Auditor worked example](https://edilec.com/open-source/sitemap-cohort-auditor/).
+
 ## Enforce a release policy in CI
 
 Add `--policy` to turn selected sitemap findings into an explicit CI gate:
