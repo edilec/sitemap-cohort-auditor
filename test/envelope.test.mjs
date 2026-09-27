@@ -3,6 +3,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
 
 import * as audit from '../lib/audit.mjs';
 import { evaluatePolicy } from '../lib/policy.mjs';
@@ -82,4 +83,20 @@ test('incomplete host evidence preserves known policy findings but cannot pass',
     assert.ok(report.findings.some(({ ruleId, severity }) =>
       ruleId === 'policy-evidence-incomplete' && severity === 'warning'));
   });
+});
+
+test('policy envelope finding explains observed and allowed lastmod counts', async () => {
+  const fixture = fileURLToPath(new URL('./fixtures/root.xml', import.meta.url));
+  const report = await auditSitemap(fixture);
+  assert.equal(report.summary.invalidLastmodValues, 3);
+  report.policy = evaluatePolicy(report, {
+    schemaVersion: 1, maxInvalidLastmodValues: 0,
+  });
+  audit.completeReportEnvelope(report);
+
+  const finding = report.findings.find(({ ruleId }) =>
+    ruleId === 'policy-max-invalid-lastmod-values');
+  assert.equal(finding.message, 'Invalid lastmod values: 3; maximum 0');
+  assert.equal(finding.message.includes(fixture), false);
+  assert.deepEqual(finding.location, { file: 'policy', pointer: '/findings/0' });
 });
