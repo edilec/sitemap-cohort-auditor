@@ -1,0 +1,17 @@
+{
+  "$schema": "https://jsr.io/schema/config-file.v1.json",
+  "name": "@edilec/sitemap-cohort-auditor",
+  "version": "0.2.2",
+  "exports": {
+    ".": "./lib/audit.mjs",
+    "./policy": "./lib/policy.mjs"
+  },
+  "publish": {
+    "include": [
+      "LICENSE",
+      "README.md",
+      "lib/**/*.d.ts",
+      "lib/**/*.mjs"
+    ]
+  }
+}
