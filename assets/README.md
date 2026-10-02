@@ -19,3 +19,14 @@ conceptual; it does not display adoption, performance, or usage statistics.
 
 Upload the PNG through the repository's Social preview setting. GitHub does not
 read this file automatically, and no workflow uploads it.
+
+## Synthetic release example
+
+- Export: [`social-preview/sitemap-cohort-auditor-release-example.png`](./social-preview/sitemap-cohort-auditor-release-example.png)
+- Editable source: [`source/sitemap-cohort-auditor-release-example.svg`](./source/sitemap-cohort-auditor-release-example.svg)
+- Dimensions: 1600 × 1000 pixels
+- Source: the checked-in `examples/release/` fixture, run with its bundled comparison and policy files
+
+This image is a readable rendering of the public synthetic example's terminal
+output. It shows two additions, one removal and a passing local policy. It does
+not show customer URLs, credentials, traffic, indexing or ranking results.
